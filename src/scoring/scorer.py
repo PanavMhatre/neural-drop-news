@@ -50,7 +50,9 @@ REJECT if:
 
 Detected category should be one of: openai, anthropic, google_ai, meta_ai, apple_ai, nvidia, ai_chips, ai_startups, ai_funding, developer_tools, coding_agents, software_engineering, ai_regulation, product_launch, tech_jobs, ai_tools, general_ai, general_tech
 
-Detected tone should be one of: startup_funding, developer_tools, ai_safety, product_launch, layoffs_hiring, general"""
+Detected tone should be one of: startup_funding, developer_tools, ai_safety, product_launch, layoffs_hiring, general
+
+Map crypto stories to the closest matching category/tone (e.g. Bitcoin ETF → ai_regulation, exchange hack → ai_safety, DeFi protocol launch → product_launch, institutional adoption → startup_funding)."""
 
 
 class StoryScorer:
@@ -158,7 +160,7 @@ class StoryScorer:
 
     def _llm_score(self, story: RawStory, source_score: int) -> LLMStoryScore:
         """Get LLM-based scoring using GPT-4o Structured Outputs."""
-        user_prompt = f"""Evaluate this news story for our AI/tech shorts channel:
+        user_prompt = f"""Evaluate this news story for our crypto news shorts channel (Neural Drop):
 
 Title: {story.title}
 Source: {story.source_name} (pre-scored credibility: {source_score}/100)
