@@ -83,19 +83,19 @@ class SmartBRollAgent:
             "noplaylist": True,
             "quiet": False,
             "no_warnings": False,
-            # Sleep between requests to avoid rate limiting
             "sleep_interval": 2,
             "max_sleep_interval": 5,
             "sleep_interval_requests": 1,
-            # Retry on transient errors
             "retries": 3,
             "fragment_retries": 3,
+            # Web client uses browser cookies — required for authenticated bypass
+            "extractor_args": {"youtube": {"player_client": ["web"]}},
         }
         if Path(self.cookies_file).exists():
             opts["cookiefile"] = self.cookies_file
-            logger.info(f"Using cookies: {self.cookies_file}")
+            logger.info(f"Using cookies: {self.cookies_file} ({Path(self.cookies_file).stat().st_size} bytes)")
         else:
-            logger.warning(f"Cookie file not found: {self.cookies_file}")
+            logger.warning(f"Cookie file not found at {self.cookies_file} — YouTube will likely block")
         return opts
 
     def acquire_media(self, script: GeneratedScript, story: RawStory, accent_color: tuple) -> dict[str, str]:
