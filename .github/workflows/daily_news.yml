@@ -54,6 +54,15 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install bgutil-ytdlp-pot-provider
+          git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git \
+            ~/bgutil-ytdlp-pot-provider
+
+      - name: Pre-cache Deno deps for bgutil PO token script
+        run: |
+          cd ~/bgutil-ytdlp-pot-provider/server
+          deno install
+          deno cache src/generate_once.ts
+          deno run --allow-all src/generate_once.ts --version || true
 
       # ── Persist SQLite DB between runs (dedup memory) ────────────────────
       - name: Restore dedup database

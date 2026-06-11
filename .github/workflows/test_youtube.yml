@@ -41,9 +41,8 @@ jobs:
       - name: Pre-cache Deno deps for bgutil PO token script
         run: |
           cd ~/bgutil-ytdlp-pot-provider/server
-          # Cache all imports so yt-dlp doesn't time out downloading them during download
+          deno install
           deno cache src/generate_once.ts
-          # Verify the script works (--version flag)
           deno run --allow-all src/generate_once.ts --version || true
 
       - name: Write yt-dlp cookies
