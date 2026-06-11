@@ -38,12 +38,23 @@ jobs:
             ~/bgutil-ytdlp-pot-provider
           ls ~/bgutil-ytdlp-pot-provider/server/src/
 
-      - name: Pre-cache Deno deps for bgutil PO token script
+      - name: Start bgutil PO token HTTP server
         run: |
           cd ~/bgutil-ytdlp-pot-provider/server
           deno install
-          deno cache src/generate_once.ts
-          deno run --allow-all src/generate_once.ts --version || true
+          deno cache src/main.ts src/generate_once.ts
+          # Start the HTTP server in the background (listens on :4416)
+          nohup deno run --allow-all src/main.ts > /tmp/bgutil-server.log 2>&1 &
+          echo "bgutil server PID: $!"
+          # Wait until it's accepting connections
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:4416/ping > /dev/null 2>&1; then
+              echo "bgutil server ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -s "http://localhost:4416/get_po_token?videoId=dQw4w9WgXcQ" || echo "token fetch attempted"
 
       - name: Write yt-dlp cookies
         env:
