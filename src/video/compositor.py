@@ -193,20 +193,29 @@ class FrameCompositor:
                     show_cta=show_cta,
                 )
 
-                # Write raw bytes to FFmpeg
-                process.stdin.write(frame.tobytes())
+                # Write raw bytes to FFmpeg — catch broken pipe to surface ffmpeg's error
+                try:
+                    process.stdin.write(frame.tobytes())
+                except (BrokenPipeError, ValueError, OSError):
+                    # ffmpeg crashed — collect stderr for diagnosis
+                    try:
+                        _, stderr_bytes = process.communicate(timeout=10)
+                        ffmpeg_err = stderr_bytes.decode(errors="replace")[-500:]
+                    except Exception:
+                        ffmpeg_err = "(could not collect ffmpeg stderr)"
+                    raise RuntimeError(f"FFmpeg pipe closed at frame {frame_idx}/{total_frames}: {ffmpeg_err}")
 
                 # Log progress every 5 seconds
                 if frame_idx % (self.fps * 5) == 0:
                     progress = frame_idx / total_frames * 100
                     logger.info(f"  Rendering: {progress:.0f}% ({frame_time:.1f}s)")
-                
+
                 # Report to UI more frequently (e.g. every second)
                 if progress_callback and frame_idx % self.fps == 0:
                     progress_callback(frame_idx / total_frames * 100)
 
             process.stdin.close()
-            stdout, stderr = process.communicate(timeout=60)
+            stdout, stderr = process.communicate(timeout=300)
             
             # Clean up captures
             for cap in video_captures.values():
@@ -475,7 +484,7 @@ class FrameCompositor:
             "-i", "-",  # Pipe input
             "-i", audio_path,  # Audio input
             "-c:v", "libx264",
-            "-preset", "medium",
+            "-preset", "faster",
             "-crf", "23",
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",
