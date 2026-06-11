@@ -76,6 +76,7 @@ jobs:
           GITHUB_STORAGE_PREFIX:    news
           YOUTUBE_COOKIES_FILE:     /tmp/yt_cookies.txt
           PIXABAY_API_KEY:          ${{ secrets.PIXABAY_API_KEY }}
+          ELEVENLABS_API_KEY:       ${{ secrets.ELEVENLABS_API_KEY }}
         run: |
           COUNT=${{ github.event.inputs.count || '7' }}
           TOPIC="${{ github.event.inputs.topic }}"

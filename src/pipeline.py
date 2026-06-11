@@ -217,13 +217,23 @@ class Pipeline:
                 return []
 
         # Step 3: Generate videos for top stories
+        # Try extra candidates if a story has no video available
+        from src.video.smart_broll import NoVideoAvailable
         packages = []
-        for scored_story in accepted[:count]:
+        candidates = list(accepted)  # full ranked list to draw from
+        attempted = 0
+        for scored_story in candidates:
+            if len(packages) >= count:
+                break
+            attempted += 1
             try:
                 package = self.process_story(scored_story, overrides)
                 if package:
                     packages.append(package)
                     logger.info(f"✓ Generated package: {package.package_id}")
+            except NoVideoAvailable as e:
+                logger.warning(f"No video for story, trying next: {e}")
+                continue
             except Exception as e:
                 logger.error(f"Failed to process story: {e}", exc_info=True)
                 continue
