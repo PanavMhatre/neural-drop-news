@@ -80,7 +80,7 @@ class SmartBRollAgent:
             logger.warning(f"No yt-dlp cookie file at {cookie_path}")
         cmd = [
             "yt-dlp",
-            "-f", "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
             "-o", outtmpl,
             "--no-playlist",
         ]

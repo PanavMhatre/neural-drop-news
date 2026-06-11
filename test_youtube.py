@@ -59,7 +59,7 @@ def download_video(video_id: str, label: str) -> bool:
     # Use the yt-dlp binary — it reads ~/.config/yt-dlp/config (with --cookies) automatically
     cmd = [
         "yt-dlp",
-        "-f", "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
         "-o", out_tmpl,
         "--no-playlist",
         url,
