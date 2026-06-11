@@ -131,15 +131,16 @@ class FrameCompositor:
             f"Rendering {total_frames} frames ({total_duration:.1f}s) at {self.fps}fps"
         )
 
-        # Pre-load media images and video captures into memory
+        # Pre-load media images and video captures into memory.
+        # Each section gets its own VideoCapture so fill-forward sections play
+        # from their own position independently (no shared seek state).
         loaded_media = {}
         video_captures = {}
         for section, path in media_paths.items():
             if Path(path).exists():
                 try:
                     if path.endswith(".mp4"):
-                        cap = cv2.VideoCapture(path)
-                        video_captures[section] = cap
+                        video_captures[section] = cv2.VideoCapture(path)
                     else:
                         loaded_media[section] = Image.open(path).convert("RGB")
                 except Exception as e:
@@ -273,64 +274,60 @@ class FrameCompositor:
         section_start = current_section["start"] if current_section else 0.0
         
         broll_img = None
-        
+
         # Check if we have a video capture for this section
         cap = video_captures.get(section_name)
         if cap:
-            # We want to match the video frame to the current frame_time relative to the section start
-            # But the simplest way is just to grab the next frame if the video is playing
             ret, cv_frame = cap.read()
             if not ret:
-                # Loop video if it ends early
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 ret, cv_frame = cap.read()
-            
             if ret:
-                # Convert BGR (OpenCV) to RGB (Pillow)
                 cv_frame = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
                 broll_img = Image.fromarray(cv_frame)
         else:
             broll_img = loaded_media.get(section_name)
-            
+
         if broll_img:
-            # Ken Burns effect: scale from 1.0 to 1.15 over the section
-            time_in_section = frame_time - section_start
-            scale = 1.0 + (time_in_section * 0.015)  # Slow zoom
-            
             img_w, img_h = broll_img.size
-            
-            # Target dimensions for video box (1440x810 for 16:9)
-            box_w = self.width
-            box_h = int(self.width * 9 / 16)
-            
-            # Target dimensions for resizing video to fill the box
-            target_w = box_w
-            target_h = int((img_h / img_w) * target_w)
-            if target_h < box_h:
-                target_h = box_h
-                target_w = int((img_w / img_h) * target_h)
-            
-            # Apply Ken Burns scale
-            curr_w = int(target_w * scale)
-            curr_h = int(target_h * scale)
-            
-            resized = broll_img.resize((curr_w, curr_h), Image.Resampling.LANCZOS)
-            
-            # Center crop to box size
-            left = (curr_w - box_w) // 2
-            top = (curr_h - box_h) // 2
-            cropped = resized.crop((left, top, left + box_w, top + box_h))
-            
-            # Tint overlay so it blends slightly (optional, but keeping it)
-            overlay = Image.new("RGBA", (box_w, box_h), (0, 0, 0, 80))
-            box_img = Image.alpha_composite(cropped.convert("RGBA"), overlay).convert("RGB")
-            
-            # Draw black background for the whole canvas
+            aspect = img_w / img_h if img_h > 0 else 1.0
+            is_portrait = aspect < 0.8  # ~9:16
+
             elem.draw_solid_background(img, (0, 0, 0))
-            
-            # Paste into center of canvas
-            paste_y = (self.height - box_h) // 2
-            img.paste(box_img, (0, paste_y))
+
+            if is_portrait:
+                # Motion graphic or portrait video — fill the full 9:16 canvas
+                resized = broll_img.resize((self.width, self.height), Image.Resampling.LANCZOS)
+                # Dark overlay for text legibility
+                overlay = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 100))
+                merged = Image.alpha_composite(resized.convert("RGBA"), overlay).convert("RGB")
+                img.paste(merged, (0, 0))
+            else:
+                # Landscape video (Pixabay / YouTube) — Ken Burns in 16:9 box
+                time_in_section = frame_time - section_start
+                scale = 1.0 + (time_in_section * 0.015)
+
+                box_w = self.width
+                box_h = int(self.width * 9 / 16)
+
+                target_w = box_w
+                target_h = int((img_h / img_w) * target_w)
+                if target_h < box_h:
+                    target_h = box_h
+                    target_w = int((img_w / img_h) * target_h)
+
+                curr_w = int(target_w * scale)
+                curr_h = int(target_h * scale)
+                resized = broll_img.resize((curr_w, curr_h), Image.Resampling.LANCZOS)
+
+                left = (curr_w - box_w) // 2
+                top = (curr_h - box_h) // 2
+                cropped = resized.crop((left, top, left + box_w, top + box_h))
+                overlay = Image.new("RGBA", (box_w, box_h), (0, 0, 0, 80))
+                box_img = Image.alpha_composite(cropped.convert("RGBA"), overlay).convert("RGB")
+
+                paste_y = (self.height - box_h) // 2
+                img.paste(box_img, (0, paste_y))
         else:
             if template.use_gradient:
                 elem.draw_gradient_background(img, template.bg_color_top, template.bg_color_bottom)

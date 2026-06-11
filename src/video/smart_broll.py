@@ -72,14 +72,14 @@ class SmartBRollAgent:
             self.model = "gpt-4o-mini"
 
     def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
-        """Call the yt-dlp binary — it reads ~/.config/yt-dlp/config (with --cookies) automatically."""
+        """Run yt-dlp via python -m so bgutil PO token plugin (site-packages) is loaded."""
         cookie_path = Path.home() / ".config/yt-dlp/cookies.txt"
         if cookie_path.exists():
             logger.info(f"yt-dlp cookies present: {cookie_path} ({cookie_path.stat().st_size} bytes)")
         else:
             logger.warning(f"No yt-dlp cookie file at {cookie_path}")
         cmd = [
-            "yt-dlp",
+            "python", "-m", "yt_dlp",
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
             "-o", outtmpl,
             "--no-playlist",
@@ -92,6 +92,8 @@ class SmartBRollAgent:
         return result.returncode == 0
 
     def acquire_media(self, script: GeneratedScript, story: RawStory, accent_color: tuple) -> dict[str, str]:
+        from src.video import motion_graphics as mg
+
         media_paths = {}
 
         # 1. Try YouTube
@@ -114,12 +116,42 @@ class SmartBRollAgent:
                 media_paths[section] = pixabay_path
                 continue
 
-            # 3. No video — reject this story
-            raise NoVideoAvailable(
-                f"No video available for story '{story.title[:60]}' section '{section}'. "
-                "YouTube and Pixabay both failed. Skipping to next story."
-            )
+            # 3. Motion graphics fallback — never leave a section blank
+            logger.warning(f"YouTube and Pixabay both failed for '{section}', generating motion graphic")
+            mg_path = str(self.output_dir / f"{section}_motion.mp4")
+            duration = cue.duration_hint or 8.0
+            if mg.generate_for_section(mg_path, story.title, section, accent_color, duration):
+                media_paths[section] = mg_path
+            else:
+                logger.error(f"Motion graphics also failed for '{section}' — skipping story")
+                raise NoVideoAvailable(
+                    f"All video sources failed for story '{story.title[:60]}' section '{section}'."
+                )
 
+        # Fill-forward: any section missing a video gets the nearest available clip
+        # so there are never blank/gradient-only frames
+        all_sections = [cue.section for cue in script.visual_plan]
+        last_good: Optional[str] = None
+        forward_fill: dict[str, str] = {}
+        for sec in all_sections:
+            if sec in media_paths:
+                last_good = media_paths[sec]
+            elif last_good:
+                forward_fill[sec] = last_good
+                logger.info(f"Fill-forward: section '{sec}' uses video from previous section")
+
+        # Backward fill for any sections before the first available video
+        first_good: Optional[str] = None
+        for sec in all_sections:
+            if sec in media_paths:
+                first_good = media_paths[sec]
+                break
+        for sec in all_sections:
+            if sec not in media_paths and sec not in forward_fill and first_good:
+                forward_fill[sec] = first_good
+                logger.info(f"Fill-back: section '{sec}' uses video from first available section")
+
+        media_paths.update(forward_fill)
         return media_paths
 
     # ── YouTube ───────────────────────────────────────────────────────────────

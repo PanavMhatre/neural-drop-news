@@ -56,9 +56,10 @@ def search_youtube(query: str) -> str | None:
 def download_video(video_id: str, label: str) -> bool:
     url = f"https://www.youtube.com/watch?v={video_id}"
     out_tmpl = str(OUTPUT_DIR / f"{label}.%(ext)s")
-    # Use the yt-dlp binary — it reads ~/.config/yt-dlp/config (with --cookies) automatically
+    # Use python -m yt_dlp so the bgutil PO token plugin (installed in site-packages) is loaded.
+    # python -m yt_dlp still reads ~/.config/yt-dlp/config automatically.
     cmd = [
-        "yt-dlp",
+        "python", "-m", "yt_dlp",
         "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
         "-o", out_tmpl,
         "--no-playlist",
