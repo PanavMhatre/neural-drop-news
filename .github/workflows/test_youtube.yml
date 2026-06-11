@@ -11,29 +11,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install yt-dlp binary, ffmpeg, and Deno
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg unzip
+          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+            -o /usr/local/bin/yt-dlp
+          sudo chmod +x /usr/local/bin/yt-dlp
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "$HOME/.deno/bin" >> $GITHUB_PATH
+          yt-dlp --version
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: pip
 
-      - name: Install yt-dlp and requests
+      - name: Install Python yt-dlp and requests
         run: pip install yt-dlp requests
 
-      - name: Install Deno
-        run: |
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "$HOME/.deno/bin" >> $GITHUB_PATH
-
-      - name: Write yt-dlp cookies
+      - name: Write yt-dlp cookies and config
         env:
           YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
         run: |
           mkdir -p ~/.config/yt-dlp
-          echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
-          echo "Cookie lines: $(wc -l < ~/.config/yt-dlp/cookies.txt)"
+          if [ -n "$YTDLP_COOKIES" ]; then
+            echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
+            echo "Cookies written ($(wc -l < ~/.config/yt-dlp/cookies.txt) lines)."
+          else
+            echo "ERROR: No YTDLP_COOKIES secret"
+            exit 1
+          fi
+          cat > ~/.config/yt-dlp/config << 'EOF'
+          --no-check-certificate
+          --sleep-requests 2
+          --sleep-interval 3
+          --max-sleep-interval 8
+          --retries 5
+          --retry-sleep 15
+          EOF
+          echo "yt-dlp config written."
 
       - name: Test YouTube download
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          YOUTUBE_COOKIES_FILE: /home/runner/.config/yt-dlp/cookies.txt
         run: python test_youtube.py

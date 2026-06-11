@@ -83,19 +83,14 @@ class SmartBRollAgent:
             "noplaylist": True,
             "quiet": False,
             "no_warnings": False,
-            "sleep_interval": 2,
-            "max_sleep_interval": 5,
-            "sleep_interval_requests": 1,
-            "retries": 3,
-            "fragment_retries": 3,
-            # Web client uses browser cookies — required for authenticated bypass
-            "extractor_args": {"youtube": {"player_client": ["web"]}},
+            # Cookies and sleep config auto-read from ~/.config/yt-dlp/cookies.txt
+            # and ~/.config/yt-dlp/config — written by the workflow before pipeline runs
         }
-        if Path(self.cookies_file).exists():
-            opts["cookiefile"] = self.cookies_file
-            logger.info(f"Using cookies: {self.cookies_file} ({Path(self.cookies_file).stat().st_size} bytes)")
+        cookie_path = Path.home() / ".config/yt-dlp/cookies.txt"
+        if cookie_path.exists():
+            logger.info(f"yt-dlp cookies present: {cookie_path} ({cookie_path.stat().st_size} bytes)")
         else:
-            logger.warning(f"Cookie file not found at {self.cookies_file} — YouTube will likely block")
+            logger.warning(f"No yt-dlp cookie file at {cookie_path} — YouTube may block downloads")
         return opts
 
     def acquire_media(self, script: GeneratedScript, story: RawStory, accent_color: tuple) -> dict[str, str]:

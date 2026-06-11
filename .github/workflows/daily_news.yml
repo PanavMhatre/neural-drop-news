@@ -32,15 +32,14 @@ jobs:
       # ── Checkout ──────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
 
-      # ── System deps ───────────────────────────────────────────────────────
-      - name: Install ffmpeg and audio libs
+      # ── System deps + yt-dlp binary + Deno ───────────────────────────────
+      - name: Install ffmpeg, yt-dlp binary, and Deno
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y ffmpeg libsndfile1 fonts-liberation
-
-      # ── Deno (required by yt-dlp for YouTube JS challenge) ────────────────
-      - name: Install Deno
-        run: |
+          sudo apt-get install -y ffmpeg libsndfile1 fonts-liberation unzip
+          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+            -o /usr/local/bin/yt-dlp
+          sudo chmod +x /usr/local/bin/yt-dlp
           curl -fsSL https://deno.land/install.sh | sh
           echo "$HOME/.deno/bin" >> $GITHUB_PATH
 
@@ -66,14 +65,24 @@ jobs:
       - name: Ensure data dir exists
         run: mkdir -p data output
 
-      # ── yt-dlp cookies (authenticated YouTube session) ────────────────────
-      - name: Write yt-dlp cookies
+      # ── yt-dlp cookies and config (authenticated YouTube session) ───────────
+      - name: Write yt-dlp cookies and config
         env:
           YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
         run: |
           mkdir -p ~/.config/yt-dlp
-          echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
-          echo "Cookie file lines: $(wc -l < ~/.config/yt-dlp/cookies.txt)"
+          if [ -n "$YTDLP_COOKIES" ]; then
+            echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
+            echo "Cookies written ($(wc -l < ~/.config/yt-dlp/cookies.txt) lines)."
+          fi
+          cat > ~/.config/yt-dlp/config << 'EOF'
+          --no-check-certificate
+          --sleep-requests 2
+          --sleep-interval 3
+          --max-sleep-interval 8
+          --retries 5
+          --retry-sleep 15
+          EOF
 
       # ── Run pipeline ──────────────────────────────────────────────────────
       - name: Generate clips and schedule to Buffer
