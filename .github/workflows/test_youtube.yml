@@ -57,12 +57,10 @@ jobs:
           cookies = config_dir / "cookies.txt"
 
           lines = [
-              "--no-check-certificate",
               "--sleep-requests 2",
               "--sleep-interval 3",
               "--max-sleep-interval 8",
               "--retries 5",
-              "--retry-sleep 15",
           ]
           if cookies.exists():
               lines.append(f"--cookies {cookies}")

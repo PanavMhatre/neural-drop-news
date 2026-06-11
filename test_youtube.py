@@ -62,6 +62,7 @@ def download_video(video_id: str, label: str) -> bool:
         "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
         "-o", out_tmpl,
         "--no-playlist",
+        "--verbose",
         url,
     ]
     print(f"  Running: {' '.join(cmd)}")
