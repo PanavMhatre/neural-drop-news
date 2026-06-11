@@ -2,8 +2,8 @@ name: Daily Crypto News
 
 on:
   schedule:
-    # 9:00 AM ET = 13:00 UTC  — change the hour to suit your timezone
-    - cron: '0 13 * * *'
+    # 7:00 AM CT (CDT) = 12:00 UTC
+    - cron: '0 12 * * *'
   workflow_dispatch:
     inputs:
       count:
