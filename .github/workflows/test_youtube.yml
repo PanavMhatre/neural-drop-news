@@ -33,19 +33,12 @@ jobs:
       - name: Install Python deps and yt-dlp PO token provider
         run: |
           pip install requests yt-dlp bgutil-ytdlp-pot-provider
-          # The server scripts ship inside the pip package — symlink to the expected location
-          BGUTIL_PKG=$(python3 -c "import bgutil_ytdlp_pot_provider, os; print(os.path.dirname(bgutil_ytdlp_pot_provider.__file__))")
-          echo "bgutil package dir: $BGUTIL_PKG"
-          ls "$BGUTIL_PKG"
-          mkdir -p ~/bgutil-ytdlp-pot-provider
-          if [ -d "$BGUTIL_PKG/server" ]; then
-            ln -s "$BGUTIL_PKG/server" ~/bgutil-ytdlp-pot-provider/server
-            echo "Linked server dir:"
-            ls ~/bgutil-ytdlp-pot-provider/server/
-          else
-            echo "No server dir in package, listing package contents:"
-            find "$BGUTIL_PKG" -type f | head -30
-          fi
+          # Clone bgutil server scripts (not bundled in pip package — separate release artifact)
+          git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git \
+            ~/bgutil-ytdlp-pot-provider
+          echo "bgutil server contents:"
+          ls ~/bgutil-ytdlp-pot-provider/server/ 2>/dev/null || echo "No server dir found"
+          find ~/bgutil-ytdlp-pot-provider -name "generate_once*" 2>/dev/null
 
       - name: Write yt-dlp cookies
         env:
