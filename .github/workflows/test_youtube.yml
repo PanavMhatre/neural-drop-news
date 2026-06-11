@@ -31,7 +31,27 @@ jobs:
           python-version: '3.11'
 
       - name: Install Python deps and yt-dlp PO token provider
-        run: pip install requests yt-dlp bgutil-ytdlp-pot-provider
+        run: |
+          pip install requests yt-dlp bgutil-ytdlp-pot-provider
+          # Download the bgutil server scripts required by the PO token provider
+          BGUTIL_VERSION=$(pip show bgutil-ytdlp-pot-provider | grep ^Version | awk '{print $2}')
+          mkdir -p ~/bgutil-ytdlp-pot-provider
+          curl -L "https://github.com/coletdjnz/yt-dlp-get-pot/releases/latest/download/bgutil-ytdlp-pot-provider-${BGUTIL_VERSION}.zip" \
+            -o /tmp/bgutil.zip 2>/dev/null || \
+          curl -L "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/releases/latest/download/bgutil-ytdlp-pot-provider.zip" \
+            -o /tmp/bgutil.zip 2>/dev/null || \
+          curl -L "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/archive/refs/heads/master.zip" \
+            -o /tmp/bgutil.zip
+          unzip -q /tmp/bgutil.zip -d /tmp/bgutil-extracted
+          # Find and copy the server directory
+          SERVER_DIR=$(find /tmp/bgutil-extracted -name "generate_once.ts" -type f | head -1 | xargs dirname | xargs dirname 2>/dev/null)
+          if [ -n "$SERVER_DIR" ]; then
+            cp -r "$SERVER_DIR" ~/bgutil-ytdlp-pot-provider/server
+            echo "bgutil server scripts installed at ~/bgutil-ytdlp-pot-provider/server"
+            ls ~/bgutil-ytdlp-pot-provider/server/
+          else
+            echo "WARNING: Could not find bgutil server scripts"
+          fi
 
       - name: Write yt-dlp cookies
         env:
