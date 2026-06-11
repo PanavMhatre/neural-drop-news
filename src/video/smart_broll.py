@@ -91,14 +91,24 @@ class SmartBRollAgent:
         result = subprocess.run(cmd, capture_output=False)
         return result.returncode == 0
 
-    def acquire_media(self, script: GeneratedScript, story: RawStory, accent_color: tuple) -> dict[str, str]:
+    def acquire_media(
+        self, script: GeneratedScript, story: RawStory, accent_color: tuple
+    ) -> tuple[dict[str, str], str, Optional[str]]:
+        """
+        Returns (media_paths, broll_source, youtube_audio_path).
+
+        broll_source: "youtube" | "pixabay" | "motion_graphics"
+        youtube_audio_path: path to the original YouTube audio track (mux back in
+            instead of TTS) when broll_source == "youtube", else None.
+        """
         from src.video import motion_graphics as mg
 
-        media_paths = {}
+        media_paths: dict[str, str] = {}
 
         # 1. Try YouTube
         video_path, subs_path = self._download_youtube(story.url, story.title)
         transcript = self._parse_subtitles(subs_path) if subs_path else []
+        youtube_succeeded = False
 
         for i, cue in enumerate(script.visual_plan):
             section = cue.section
@@ -108,6 +118,7 @@ class SmartBRollAgent:
                 start_t, end_t = self._find_best_segment(cue, transcript, default_start=i * 10.0)
                 if self._trim_video(video_path, str(out_path), start_t, end_t):
                     media_paths[section] = str(out_path)
+                    youtube_succeeded = True
                     continue
 
             # 2. Pixabay fallback
@@ -129,7 +140,6 @@ class SmartBRollAgent:
                 )
 
         # Fill-forward: any section missing a video gets the nearest available clip
-        # so there are never blank/gradient-only frames
         all_sections = [cue.section for cue in script.visual_plan]
         last_good: Optional[str] = None
         forward_fill: dict[str, str] = {}
@@ -140,7 +150,6 @@ class SmartBRollAgent:
                 forward_fill[sec] = last_good
                 logger.info(f"Fill-forward: section '{sec}' uses video from previous section")
 
-        # Backward fill for any sections before the first available video
         first_good: Optional[str] = None
         for sec in all_sections:
             if sec in media_paths:
@@ -152,7 +161,38 @@ class SmartBRollAgent:
                 logger.info(f"Fill-back: section '{sec}' uses video from first available section")
 
         media_paths.update(forward_fill)
-        return media_paths
+
+        # Determine dominant source and extract YouTube audio if applicable
+        if youtube_succeeded and video_path and Path(video_path).exists():
+            broll_source = "youtube"
+            yt_audio = self._extract_audio(video_path)
+        elif any("pixabay" in p for p in media_paths.values()):
+            broll_source = "pixabay"
+            yt_audio = None
+        else:
+            broll_source = "motion_graphics"
+            yt_audio = None
+
+        logger.info(f"B-roll source: {broll_source}")
+        return media_paths, broll_source, yt_audio
+
+    def _extract_audio(self, video_path: str) -> Optional[str]:
+        """Extract audio track from a video file to mp3."""
+        out = str(self.output_dir / "yt_audio.mp3")
+        cmd = [
+            "ffmpeg", "-y", "-i", video_path,
+            "-vn", "-acodec", "libmp3lame", "-q:a", "3",
+            "-t", "120",  # cap at 2 min
+            out,
+        ]
+        try:
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            if Path(out).exists() and Path(out).stat().st_size > 5000:
+                logger.info(f"YouTube audio extracted: {out}")
+                return out
+        except Exception as e:
+            logger.warning(f"Audio extraction failed: {e}")
+        return None
 
     # ── YouTube ───────────────────────────────────────────────────────────────
 

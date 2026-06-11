@@ -91,13 +91,31 @@ class Pipeline:
         self.newsdata_client = NewsDataClient(newsdata_key, discovery_config) if newsdata_key else None
         self.rss_client = RSSClient(discovery_config)
 
-        # Scoring
+        # Analytics — fetch channel insights to inform story scoring
+        from src.analytics.youtube_channel import YouTubeChannelAnalytics
+        from src.analytics import zernio
+        analytics_insights: dict = {}
+        yt_analytics = YouTubeChannelAnalytics(api_key=os.getenv("YOUTUBE_API_KEY"))
+        channel_id = os.getenv("YOUTUBE_CHANNEL_ID", "")
+        if not channel_id:
+            channel_handle = self.config.get("channel", {}).get("youtube_handle", "")
+            if channel_handle:
+                channel_id = yt_analytics.get_channel_id(channel_handle) or ""
+        if channel_id:
+            try:
+                analytics_insights = yt_analytics.get_performance_insights(channel_id)
+                logger.info(f"Analytics loaded: {analytics_insights.get('total_videos_analyzed', 0)} videos, "
+                            f"top kws: {[k for k,_ in analytics_insights.get('top_keywords', [])[:5]]}")
+            except Exception as e:
+                logger.warning(f"Analytics fetch failed (non-fatal): {e}")
+
+        # Scoring (analytics-informed)
         scoring_config = {
             **self.config.get("scoring", {}),
             **self.config.get("scripts", {}),
             "freshness_hours": discovery_config.get("max_age_hours", 48),
         }
-        self.scorer = StoryScorer(self.openai_client, scoring_config)
+        self.scorer = StoryScorer(self.openai_client, scoring_config, analytics_insights=analytics_insights)
 
         # Script generation
         scripts_config = {
@@ -360,31 +378,58 @@ class Pipeline:
         output_dir = Path(self.output_folder) / package_id
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Step 4: Generate voiceover
-        audio_path = str(output_dir / "voiceover.mp3")
-        logger.info("Generating voiceover...")
-        
-        voice_override = overrides.get("tts_voice") if overrides else None
-        
-        voice_config = self.tts_engine.generate_voiceover(
-            script_text=script.full_script,
-            output_path=audio_path,
-            tone=scored_story.detected_tone,
-            voice_override=voice_override
-        )
+        # Step 4: Acquire b-roll first (determines if we need TTS or can use YouTube audio)
+        broll_source = "tts_only"
+        yt_audio_path = None
+        media_paths: dict[str, str] = {}
 
-        # Step 5: Get audio duration
+        if self.render_video:
+            logger.info("Acquiring b-roll media...")
+            from src.video.smart_broll import SmartBRollAgent
+            broll_agent = SmartBRollAgent(str(output_dir), self.openai_client)
+            media_paths, broll_source, yt_audio_path = broll_agent.acquire_media(
+                script, scored_story.story, accent_color
+            )
+
+        # Step 5: Audio — use YouTube's original audio when it's the b-roll source,
+        # otherwise generate TTS (Pixabay / motion graphics have no relevant audio).
+        audio_path = str(output_dir / "voiceover.mp3")
+        voice_override = overrides.get("tts_voice") if overrides else None
+
+        if broll_source == "youtube" and yt_audio_path:
+            logger.info("YouTube b-roll: using original video audio, skipping TTS")
+            import shutil
+            shutil.copy2(yt_audio_path, audio_path)
+            voice_config = self.tts_engine.generate_voiceover.__func__  # type: ignore
+            # Build a minimal VoiceConfig so downstream code doesn't break
+            from src.models.schemas import VoiceConfig, StoryTone as _ST
+            voice_config = VoiceConfig(
+                voice="youtube_original",
+                model="none",
+                speed=1.0,
+                tone=scored_story.detected_tone,
+            )
+        else:
+            logger.info("Generating TTS voiceover...")
+            voice_config = self.tts_engine.generate_voiceover(
+                script_text=script.full_script,
+                output_path=audio_path,
+                tone=scored_story.detected_tone,
+                voice_override=voice_override,
+            )
+
+        # Step 6: Get audio duration
         audio_duration = self._get_audio_duration(audio_path)
         if audio_duration is None:
             audio_duration = script.estimated_duration_seconds
         logger.info(f"Audio duration: {audio_duration:.1f}s")
 
-        # Step 6: Align captions
+        # Step 7: Align captions
         logger.info("Aligning captions...")
         word_timestamps = self.aligner.align_audio(audio_path, script.full_script)
         caption_lines = self.caption_formatter.create_caption_lines(word_timestamps)
 
-        # Step 7: Export caption files
+        # Step 8: Export caption files
         srt_path = self.caption_formatter.export_srt(
             caption_lines, str(output_dir / "captions.srt")
         )
@@ -395,22 +440,17 @@ class Pipeline:
             accent_color=accent_color,
         )
 
-        # Step 8: Generate metadata
+        # Step 9: Generate metadata
         logger.info("Generating metadata...")
         metadata = self.metadata_generator.generate_metadata(
             script, scored_story, voice_config
         )
 
-        # Step 9: Render video (if enabled)
+        # Step 10: Render video (if enabled)
         video_path = None
         thumbnail_path = None
 
-        if self.render_video:
-            logger.info("Acquiring b-roll media...")
-            from src.video.smart_broll import SmartBRollAgent
-            broll_agent = SmartBRollAgent(str(output_dir), self.openai_client)
-            media_paths = broll_agent.acquire_media(script, scored_story.story, accent_color)
-            
+        if self.render_video and media_paths:
             logger.info("Rendering video...")
             render_paths = self.video_renderer.render(
                 output_dir=str(output_dir),
@@ -468,6 +508,20 @@ class Pipeline:
             quality_report_path=str(output_dir / "quality_report.json"),
             thumbnail_path=thumbnail_path,
         )
+
+        # Zernio analytics: track the published video
+        try:
+            from src.analytics import zernio as _z
+            _z.track_video_published(
+                video_id=package_id,
+                title=story.title,
+                story_topic=scored_story.detected_category.value,
+                broll_source=broll_source,
+                duration_seconds=audio_duration,
+                quality_score=quality_report.overall_score,
+            )
+        except Exception as _ze:
+            logger.debug(f"Zernio tracking skipped: {_ze}")
 
         logger.info(f"✓ Package complete: {package_id}")
         return package

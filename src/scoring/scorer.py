@@ -56,13 +56,19 @@ Map crypto stories to the closest matching category/tone (e.g. Bitcoin ETF → a
 
 
 class StoryScorer:
-    """Scores stories using GPT-4o and source credibility data."""
+    """Scores stories using GPT-4o, source credibility, and channel analytics."""
 
-    def __init__(self, client: OpenAI, config: dict):
+    def __init__(self, client: OpenAI, config: dict, analytics_insights: dict | None = None):
         self.client = client
         self.config = config
         self.min_score = config.get("minimum_score", 55)
         self.model = config.get("llm_model", "gpt-4o")
+        # analytics_insights: output of YouTubeChannelAnalytics.get_performance_insights()
+        # Keys used: top_keywords (list of (kw, score)), avg_engagement_30d
+        self._top_keywords: dict[str, float] = {}
+        if analytics_insights:
+            for kw, score in analytics_insights.get("top_keywords", []):
+                self._top_keywords[kw.lower()] = float(score)
 
     def score_story(self, story: RawStory) -> ScoredStory:
         """
@@ -104,6 +110,21 @@ class StoryScorer:
             visual_potential=llm_score.visual_potential,
             explainability=llm_score.explainability,
         )
+
+        # Analytics boost: if this story's keywords match top-performing channel content,
+        # nudge viral_potential and relevance up (max +10 pts each, capped at 100).
+        if self._top_keywords:
+            title_lower = story.title.lower()
+            boost = sum(
+                min(1.0, weight / max(self._top_keywords.values()))
+                for kw, weight in self._top_keywords.items()
+                if kw in title_lower
+            )
+            boost_pts = min(10, int(boost * 5))
+            if boost_pts:
+                score.viral_potential = min(100, score.viral_potential + boost_pts)
+                score.relevance = min(100, score.relevance + boost_pts)
+                logger.info(f"Analytics boost +{boost_pts} for '{story.title[:50]}'")
 
         # Accept/reject decision
         accepted = llm_score.should_accept and score.total_score >= self.min_score

@@ -9,6 +9,7 @@ channel:
   name: "Neural Drop"
   tagline: "Fast crypto and digital-asset news for traders, builders, and curious newcomers."
   daily_video_limit: 7
+  youtube_handle: "NeuralDropBits"
 
 # ---------------------------------------------------------------------------
 # News Discovery
