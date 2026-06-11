@@ -56,6 +56,10 @@ jobs:
       - name: Ensure data dir exists
         run: mkdir -p data output
 
+      # ── YouTube cookies (for yt-dlp bot bypass) ───────────────────────────
+      - name: Write YouTube cookies
+        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/yt_cookies.txt
+
       # ── Run pipeline ──────────────────────────────────────────────────────
       - name: Generate clips and schedule to Buffer
         env:
@@ -70,6 +74,8 @@ jobs:
           GITHUB_STORAGE_REPO:      panavm12-jpg/storage
           GITHUB_STORAGE_BRANCH:    main
           GITHUB_STORAGE_PREFIX:    news
+          YOUTUBE_COOKIES_FILE:     /tmp/yt_cookies.txt
+          PIXABAY_API_KEY:          ${{ secrets.PIXABAY_API_KEY }}
         run: |
           COUNT=${{ github.event.inputs.count || '7' }}
           TOPIC="${{ github.event.inputs.topic }}"
