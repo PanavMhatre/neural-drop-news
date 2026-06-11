@@ -15,7 +15,7 @@ from src.models.schemas import RawStory, StoryCategory
 
 logger = logging.getLogger(__name__)
 
-NEWSDATA_BASE_URL = "https://newsdata.io/api/1/latest"
+NEWSDATA_BASE_URL = "https://newsdata.io/api/1/news"
 
 # Map search terms to story categories
 TOPIC_CATEGORY_MAP = {
@@ -93,7 +93,7 @@ class NewsDataClient:
             "apikey": self.api_key,
             "q": topic,
             "language": "en",
-            "category": "technology,science",
+            "category": "business,technology",
             "size": 10,
         }
 
