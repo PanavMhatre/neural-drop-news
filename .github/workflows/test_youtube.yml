@@ -1,0 +1,32 @@
+name: Test YouTube Download
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-youtube:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install yt-dlp only
+        run: pip install yt-dlp
+
+      - name: Write YouTube cookies
+        run: |
+          printf '%s' "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/yt_cookies.txt
+          echo "Cookie file size: $(wc -c < /tmp/yt_cookies.txt) bytes"
+          echo "Cookie file lines: $(wc -l < /tmp/yt_cookies.txt)"
+          head -3 /tmp/yt_cookies.txt
+
+      - name: Test YouTube download
+        env:
+          YOUTUBE_COOKIES_FILE: /tmp/yt_cookies.txt
+        run: python test_youtube.py
