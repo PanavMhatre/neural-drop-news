@@ -97,11 +97,8 @@ class NewsDataClient:
             "size": 10,
         }
 
-        # Add exclude keywords if configured
-        exclude = self.config.get("exclude_keywords", [])
-        if exclude:
-            params["excludefield"] = "title"
-            # NewsData doesn't have direct exclude, we'll filter in post-processing
+        # Exclude keywords are applied in post-processing via _passes_filters
+        # (NewsData free plan doesn't support server-side keyword exclusion)
 
         try:
             response = self._session.get(NEWSDATA_BASE_URL, params=params, timeout=15)
