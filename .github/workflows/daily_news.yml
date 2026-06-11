@@ -110,6 +110,7 @@ jobs:
               "--max-sleep-interval 8",
               "--retries 5",
               "--retry-sleep 15",
+              "--remote-components ejs:github",
           ]
           if cookies.exists():
               lines.append(f"--cookies {cookies}")
