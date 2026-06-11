@@ -8,6 +8,7 @@ python-dotenv>=1.0.0
 # News Discovery
 feedparser>=6.0.0
 requests>=2.31.0
+beautifulsoup4>=4.12.0
 
 # Dedup / Similarity
 rapidfuzz>=3.6.0
@@ -18,6 +19,17 @@ whisper-timestamped>=1.15.0
 # Video Rendering
 Pillow>=10.3.0
 ffmpeg-python>=0.2.0
+opencv-python>=4.8.0
+numpy>=1.26.0
+
+# Video download
+yt-dlp>=2024.1.0
+
+# Caption format
+webvtt-py>=0.5.1
+
+# Slug generation
+python-slugify>=8.0.0
 
 # Logging / Utilities
 rich>=13.7.0
