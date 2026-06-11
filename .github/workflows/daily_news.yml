@@ -62,9 +62,16 @@ jobs:
 
       # ── YouTube cookies (for yt-dlp bot bypass) ───────────────────────────
       - name: Write YouTube cookies
+        env:
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
-          printf '%s' "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/yt_cookies.txt
+          echo "$YOUTUBE_COOKIES" > /tmp/yt_cookies.txt
           echo "Cookie file lines: $(wc -l < /tmp/yt_cookies.txt)"
+
+      - name: Install deno (required by yt-dlp for YouTube)
+        run: |
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "$HOME/.deno/bin" >> $GITHUB_PATH
 
       # ── Run pipeline ──────────────────────────────────────────────────────
       - name: Generate clips and schedule to Buffer
