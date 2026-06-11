@@ -30,15 +30,24 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Setup Node.js for bgutil build
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Install Python deps and yt-dlp PO token provider
         run: |
           pip install requests yt-dlp bgutil-ytdlp-pot-provider
-          # Clone bgutil server scripts (not bundled in pip package — separate release artifact)
+          # Clone bgutil server scripts (not bundled in pip package)
           git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git \
             ~/bgutil-ytdlp-pot-provider
-          echo "bgutil server contents:"
-          ls ~/bgutil-ytdlp-pot-provider/server/ 2>/dev/null || echo "No server dir found"
-          find ~/bgutil-ytdlp-pot-provider -name "generate_once*" 2>/dev/null
+          # Build the Node.js version (more reliable in CI than Deno)
+          cd ~/bgutil-ytdlp-pot-provider/server
+          npm install
+          npm run build
+          echo "bgutil build complete:"
+          ls build/
+          ls src/
 
       - name: Write yt-dlp cookies
         env:
