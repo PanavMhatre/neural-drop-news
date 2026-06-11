@@ -1,67 +1,88 @@
 #!/usr/bin/env python3
-"""Diagnostic: test yt-dlp YouTube search with cookies. No TTS, no rendering, no Buffer."""
+"""
+Diagnostic: YouTube Data API v3 search → yt-dlp android client download.
+No TTS, no rendering, no Buffer.
+"""
 import os
 import sys
 from pathlib import Path
 
+import requests
 import yt_dlp
 
-COOKIES_FILE = os.getenv("YOUTUBE_COOKIES_FILE", "/tmp/yt_cookies.txt")
+API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 OUTPUT_DIR = Path("/tmp/yt_test")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 QUERIES = [
-    "ytsearch1:Bitcoin price drop crypto news",
-    "ytsearch1:BlackRock Bitcoin ETF news",
+    "Bitcoin price drop crypto news",
+    "BlackRock Bitcoin ETF news",
 ]
 
-cookies_ok = Path(COOKIES_FILE).exists() and Path(COOKIES_FILE).stat().st_size > 100
-print(f"Cookie file: {COOKIES_FILE}")
-print(f"Cookie file exists: {Path(COOKIES_FILE).exists()}")
-print(f"Cookie file size: {Path(COOKIES_FILE).stat().st_size if Path(COOKIES_FILE).exists() else 0} bytes")
-print(f"Cookie file first line: {open(COOKIES_FILE).readline().strip() if cookies_ok else 'N/A'}")
+print(f"YouTube API key set: {bool(API_KEY)}")
 print()
 
-opts = {
-    "format": "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-    "outtmpl": str(OUTPUT_DIR / "%(id)s.%(ext)s"),
-    "noplaylist": True,
-    "quiet": False,
-    "no_warnings": False,
-    "socket_timeout": 30,
-}
-if cookies_ok:
-    opts["cookiefile"] = COOKIES_FILE
-    print("Using cookies file for yt-dlp")
-else:
-    print("WARNING: no valid cookie file — running without cookies")
+def search_youtube(query: str) -> str | None:
+    """Use YouTube Data API v3 to find best video ID for a query."""
+    resp = requests.get(
+        "https://www.googleapis.com/youtube/v3/search",
+        params={
+            "key": API_KEY,
+            "q": query,
+            "part": "snippet",
+            "type": "video",
+            "maxResults": 1,
+            "videoDuration": "short",  # under 4 minutes
+            "order": "relevance",
+        },
+        timeout=15,
+    )
+    resp.raise_for_status()
+    items = resp.json().get("items", [])
+    if not items:
+        return None
+    video_id = items[0]["id"]["videoId"]
+    title = items[0]["snippet"]["title"]
+    print(f"  API found: [{video_id}] {title}")
+    return video_id
 
-print()
-success = 0
-for query in QUERIES:
-    print(f"--- Testing: {query} ---")
+
+def download_video(video_id: str, section: str) -> bool:
+    """Download via yt-dlp using Android player client (bypasses bot detection)."""
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    out_path = str(OUTPUT_DIR / f"{section}.%(ext)s")
+    opts = {
+        "format": "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "outtmpl": out_path,
+        "noplaylist": True,
+        "quiet": False,
+        # Android client bypasses bot detection — no cookies needed
+        "extractor_args": {"youtube": {"player_client": ["android"]}},
+    }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(query, download=True)
-            entries = info.get("entries") or [info]
-            entry = entries[0] if entries else info
-            ext = entry.get("ext", "mp4")
-            vid_id = entry.get("id", "unknown")
-            out = OUTPUT_DIR / f"{vid_id}.{ext}"
-            if out.exists():
-                print(f"✓ Downloaded: {out} ({out.stat().st_size // 1024} KB)")
-                success += 1
-            else:
-                # try glob
-                files = list(OUTPUT_DIR.glob(f"*.{ext}"))
-                if files:
-                    print(f"✓ Downloaded: {files[0]} ({files[0].stat().st_size // 1024} KB)")
-                    success += 1
-                else:
-                    print(f"✗ File not found after download")
+            ydl.download([url])
+        files = list(OUTPUT_DIR.glob(f"{section}.*"))
+        if files and files[0].stat().st_size > 10_000:
+            print(f"  ✓ Downloaded: {files[0].name} ({files[0].stat().st_size // 1024} KB)")
+            return True
+        print(f"  ✗ File missing or empty after download")
+        return False
     except Exception as e:
-        print(f"✗ FAILED: {e}")
+        print(f"  ✗ yt-dlp failed: {e}")
+        return False
+
+
+success = 0
+for i, query in enumerate(QUERIES):
+    print(f"--- Query: {query} ---")
+    video_id = search_youtube(query)
+    if not video_id:
+        print("  ✗ API returned no results")
+        continue
+    if download_video(video_id, f"clip_{i}"):
+        success += 1
     print()
 
-print(f"Result: {success}/{len(QUERIES)} queries succeeded")
+print(f"Result: {success}/{len(QUERIES)} succeeded")
 sys.exit(0 if success > 0 else 1)

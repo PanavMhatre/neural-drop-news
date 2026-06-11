@@ -16,11 +16,8 @@ jobs:
           python-version: '3.11'
           cache: pip
 
-      - name: Install yt-dlp and deno
-        run: |
-          pip install yt-dlp
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "$HOME/.deno/bin" >> $GITHUB_PATH
+      - name: Install yt-dlp and requests
+        run: pip install yt-dlp requests
 
       - name: Write YouTube cookies
         env:
@@ -33,5 +30,5 @@ jobs:
 
       - name: Test YouTube download
         env:
-          YOUTUBE_COOKIES_FILE: /tmp/yt_cookies.txt
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python test_youtube.py
