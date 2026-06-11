@@ -23,14 +23,26 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main(count: int = 5, topic: str | None = None) -> None:
+def main(count: int = 7, topic: str | None = None, manifest: str | None = None) -> None:
+    import json
     from src.pipeline import Pipeline
     from src.public_media import public_assets_for_package
     from src.buffer_client import BufferClient, build_post_text, build_service_text_map
 
     pipeline = Pipeline()
-    logger.info(f"Starting daily pipeline: count={count}, topic={topic or 'auto'}")
-    packages = pipeline.generate(topic=topic, count=count)
+
+    # If the cloud curator sent a pre-selected manifest, inject those URLs as topics
+    if manifest:
+        stories = json.loads(manifest)
+        logger.info(f"Manifest provided: {len(stories)} pre-selected stories")
+        packages = []
+        for story in stories[:count]:
+            url = story.get("video_url") or story.get("article_url")
+            pkgs = pipeline.generate(topic=url, count=1)
+            packages.extend(pkgs)
+    else:
+        logger.info(f"Starting daily pipeline: count={count}, topic={topic or 'auto'}")
+        packages = pipeline.generate(topic=topic, count=count)
 
     if not packages:
         logger.error("Pipeline produced no packages — exiting with failure")
@@ -75,5 +87,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run daily news pipeline")
     parser.add_argument("--count", type=int, default=5, help="Number of clips to generate")
     parser.add_argument("--topic", type=str, default=None, help="Optional topic override")
+    parser.add_argument("--manifest", type=str, default=None, help="JSON manifest from cloud curator")
     args = parser.parse_args()
-    main(count=args.count, topic=args.topic)
+    main(count=args.count, topic=args.topic, manifest=args.manifest)

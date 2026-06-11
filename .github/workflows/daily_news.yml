@@ -14,6 +14,10 @@ on:
         description: Optional topic override (leave blank for auto)
         default: ''
         required: false
+      manifest:
+        description: JSON array of pre-selected stories from the cloud curator (leave blank for auto-discovery)
+        default: ''
+        required: false
 
 jobs:
   build-and-publish:
@@ -68,9 +72,12 @@ jobs:
           GITHUB_STORAGE_BRANCH:    main
           GITHUB_STORAGE_PREFIX:    news
         run: |
-          COUNT=${{ github.event.inputs.count || '5' }}
+          COUNT=${{ github.event.inputs.count || '7' }}
           TOPIC="${{ github.event.inputs.topic }}"
-          if [ -n "$TOPIC" ]; then
+          MANIFEST='${{ github.event.inputs.manifest }}'
+          if [ -n "$MANIFEST" ]; then
+            python run_daily.py --count "$COUNT" --manifest "$MANIFEST"
+          elif [ -n "$TOPIC" ]; then
             python run_daily.py --count "$COUNT" --topic "$TOPIC"
           else
             python run_daily.py --count "$COUNT"
