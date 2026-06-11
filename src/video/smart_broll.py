@@ -7,7 +7,6 @@ from typing import Optional
 
 import requests
 import webvtt
-import yt_dlp
 from pydantic import BaseModel, Field
 
 from src.models.schemas import GeneratedScript, RawStory, VisualCue
@@ -72,35 +71,25 @@ class SmartBRollAgent:
         except Exception:
             self.model = "gpt-4o-mini"
 
-    def _ydl_opts(self, outtmpl: str | None = None) -> dict:
-        # Python yt_dlp library does NOT read ~/.config/yt-dlp/config — must pass explicitly
-        cookie_path = Path(self.cookies_file) if self.cookies_file else Path.home() / ".config/yt-dlp/cookies.txt"
+    def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
+        """Call the yt-dlp binary — it reads ~/.config/yt-dlp/config (with --cookies) automatically."""
+        cookie_path = Path.home() / ".config/yt-dlp/cookies.txt"
         if cookie_path.exists():
-            logger.info(f"yt-dlp cookies: {cookie_path} ({cookie_path.stat().st_size} bytes)")
+            logger.info(f"yt-dlp cookies present: {cookie_path} ({cookie_path.stat().st_size} bytes)")
         else:
-            logger.warning(f"No yt-dlp cookie file at {cookie_path} — YouTube may block downloads")
-            cookie_path = None
-
-        opts = {
-            "format": "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-            "outtmpl": outtmpl or str(self.output_dir / "source_video.%(ext)s"),
-            "writesubtitles": True,
-            "writeautomaticsub": True,
-            "subtitleslangs": ["en"],
-            "subtitlesformat": "vtt",
-            "noplaylist": True,
-            "quiet": False,
-            "no_warnings": False,
-            "sleep_interval_requests": 2,
-            "sleep_interval": 3,
-            "max_sleep_interval": 8,
-            "retries": 5,
-            # ios client bypasses bot detection from CI IPs
-            "extractor_args": {"youtube": {"player_client": ["ios"]}},
-        }
-        if cookie_path:
-            opts["cookiefile"] = str(cookie_path)
-        return opts
+            logger.warning(f"No yt-dlp cookie file at {cookie_path}")
+        cmd = [
+            "yt-dlp",
+            "-f", "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "-o", outtmpl,
+            "--no-playlist",
+        ]
+        if write_subs:
+            cmd += ["--write-subs", "--write-auto-subs", "--sub-langs", "en", "--sub-format", "vtt"]
+        cmd.append(url)
+        logger.info(f"yt-dlp cmd: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=False)
+        return result.returncode == 0
 
     def acquire_media(self, script: GeneratedScript, story: RawStory, accent_color: tuple) -> dict[str, str]:
         media_paths = {}
@@ -150,17 +139,13 @@ class SmartBRollAgent:
             return self._youtube_search(title)
 
         logger.info(f"Trying article URL for video: {url}")
-        try:
-            with yt_dlp.YoutubeDL(self._ydl_opts()) as ydl:
-                info = ydl.extract_info(url, download=True)
-                ext = info.get("ext", "mp4")
-                video_path = self.output_dir / f"source_video.{ext}"
-                subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
-                if video_path.exists():
-                    logger.info("Article video downloaded successfully")
-                    return str(video_path), str(subs_path) if subs_path else None
-        except Exception as e:
-            logger.warning(f"Article URL download failed: {e}")
+        outtmpl = str(self.output_dir / "source_video.%(ext)s")
+        if self._ydl_bin_download(url, outtmpl, write_subs=True):
+            video_path = next(self.output_dir.glob("source_video.mp4"), None) or next(self.output_dir.glob("source_video.*"), None)
+            subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
+            if video_path and video_path.exists():
+                logger.info("Article video downloaded successfully")
+                return str(video_path), str(subs_path) if subs_path else None
 
         return self._youtube_search(title)
 
@@ -194,38 +179,30 @@ class SmartBRollAgent:
         return None
 
     def _youtube_search(self, title: str) -> tuple[Optional[str], Optional[str]]:
-        # Try API search first to get exact video ID, then download that ID
+        # Try API search first to get exact video ID, then download by ID via binary
         video_id = self._youtube_api_search(title)
         if video_id:
             url = f"https://www.youtube.com/watch?v={video_id}"
             logger.info(f"Downloading YouTube video by ID: {video_id}")
-            try:
-                with yt_dlp.YoutubeDL(self._ydl_opts()) as ydl:
-                    ydl.download([url])
-                video_path = next(self.output_dir.glob("source_video.*"), None)
+            outtmpl = str(self.output_dir / "source_video.%(ext)s")
+            if self._ydl_bin_download(url, outtmpl, write_subs=True):
+                video_path = next(self.output_dir.glob("source_video.mp4"), None) or next(self.output_dir.glob("source_video.*"), None)
                 subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
                 if video_path and video_path.stat().st_size > 10_000:
                     logger.info("YouTube video downloaded successfully")
                     return str(video_path), str(subs_path) if subs_path else None
-            except Exception as e:
-                logger.warning(f"YouTube download by ID failed: {e}")
-            time.sleep(3)  # back off before fallback
+            time.sleep(3)
 
-        # Fallback: yt-dlp keyword search
+        # Fallback: yt-dlp binary keyword search
         search_query = f"ytsearch1:{title} crypto news"
         logger.info(f"YouTube keyword search fallback: {search_query}")
-        try:
-            with yt_dlp.YoutubeDL(self._ydl_opts()) as ydl:
-                info = ydl.extract_info(search_query, download=True)
-                entries = info.get("entries") or [info]
-                ext = entries[0].get("ext", "mp4") if entries else "mp4"
-                video_path = self.output_dir / f"source_video.{ext}"
-                subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
-                if video_path.exists():
-                    logger.info("YouTube keyword search downloaded successfully")
-                    return str(video_path), str(subs_path) if subs_path else None
-        except Exception as e:
-            logger.warning(f"YouTube keyword search failed: {e}")
+        outtmpl = str(self.output_dir / "source_video.%(ext)s")
+        if self._ydl_bin_download(search_query, outtmpl, write_subs=True):
+            video_path = next(self.output_dir.glob("source_video.mp4"), None) or next(self.output_dir.glob("source_video.*"), None)
+            subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
+            if video_path and video_path.exists():
+                logger.info("YouTube keyword search downloaded successfully")
+                return str(video_path), str(subs_path) if subs_path else None
         return None, None
 
     # ── Pixabay ───────────────────────────────────────────────────────────────
@@ -237,45 +214,64 @@ class SmartBRollAgent:
                 return term
         return "cryptocurrency blockchain finance"
 
+    # Broad fallback terms guaranteed to return results on Pixabay
+    FALLBACK_PIXABAY_TERMS = [
+        "cryptocurrency blockchain",
+        "finance technology",
+        "digital money",
+        "stock market trading",
+        "technology futuristic",
+        "city lights night",
+    ]
+
     def _fetch_pixabay_video(self, story_title: str, section: str, index: int) -> Optional[str]:
         if not self.pixabay_api_key:
             logger.warning("PIXABAY_API_KEY not set")
             return None
 
-        search_term = self._pixabay_terms(story_title)
-        logger.info(f"Pixabay fallback for '{section}': '{search_term}'")
+        primary_term = self._pixabay_terms(story_title)
+        search_terms = [primary_term] + [t for t in self.FALLBACK_PIXABAY_TERMS if t != primary_term]
 
-        try:
-            resp = requests.get(
-                PIXABAY_API_URL,
-                params={"key": self.pixabay_api_key, "q": search_term, "video_type": "film", "per_page": 10, "safesearch": "true"},
-                timeout=15,
-            )
-            resp.raise_for_status()
-            hits = resp.json().get("hits", [])
-            if not hits:
-                logger.warning(f"Pixabay no results for '{search_term}'")
-                return None
+        for term in search_terms:
+            logger.info(f"Pixabay search for '{section}': '{term}'")
+            try:
+                resp = requests.get(
+                    PIXABAY_API_URL,
+                    params={"key": self.pixabay_api_key, "q": term, "video_type": "film", "per_page": 20, "safesearch": "true"},
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                hits = resp.json().get("hits", [])
+                if not hits:
+                    logger.warning(f"Pixabay no results for '{term}', trying next term")
+                    continue
 
-            hit = hits[index % len(hits)]
-            videos = hit.get("videos", {})
-            video_info = videos.get("medium") or videos.get("small") or videos.get("large") or videos.get("tiny")
-            if not video_info:
-                return None
+                # Try each hit until one downloads successfully
+                for attempt, hit in enumerate(hits[index % len(hits):index % len(hits) + 5] or hits[:5]):
+                    videos = hit.get("videos", {})
+                    video_info = (videos.get("medium") or videos.get("large")
+                                  or videos.get("small") or videos.get("tiny"))
+                    if not video_info:
+                        continue
+                    out_path = self.output_dir / f"{section}_pixabay.mp4"
+                    try:
+                        dl = requests.get(video_info["url"], timeout=60, stream=True)
+                        dl.raise_for_status()
+                        with open(out_path, "wb") as f:
+                            for chunk in dl.iter_content(chunk_size=1 << 16):
+                                f.write(chunk)
+                        if out_path.exists() and out_path.stat().st_size > 10_000:
+                            logger.info(f"Pixabay video saved: {out_path} (term='{term}')")
+                            return str(out_path)
+                    except Exception as e:
+                        logger.warning(f"Pixabay download attempt {attempt} failed: {e}")
+                        continue
 
-            out_path = self.output_dir / f"{section}_pixabay.mp4"
-            dl = requests.get(video_info["url"], timeout=60, stream=True)
-            dl.raise_for_status()
-            with open(out_path, "wb") as f:
-                for chunk in dl.iter_content(chunk_size=1 << 16):
-                    f.write(chunk)
+            except Exception as e:
+                logger.warning(f"Pixabay fetch failed for term '{term}': {e}")
+                continue
 
-            if out_path.exists() and out_path.stat().st_size > 10_000:
-                logger.info(f"Pixabay video saved: {out_path}")
-                return str(out_path)
-
-        except Exception as e:
-            logger.warning(f"Pixabay fetch failed: {e}")
+        logger.error(f"All Pixabay search terms exhausted for section '{section}'")
         return None
 
     # ── Utilities ──────────────────────────────────────────────────────────────
