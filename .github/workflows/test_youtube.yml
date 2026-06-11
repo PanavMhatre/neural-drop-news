@@ -2,6 +2,10 @@ name: Test YouTube Download
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'test_youtube.py'
+      - '.github/workflows/test_youtube.yml'
 
 jobs:
   test-youtube:
