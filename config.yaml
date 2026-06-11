@@ -1,0 +1,179 @@
+# ============================================================================
+# AI + Tech News Shorts — Configuration
+# ============================================================================
+# All settings can be overridden here without changing code.
+# Environment variables in .env override API keys.
+# ============================================================================
+
+channel:
+  name: "TechPulse Shorts"
+  tagline: "Fast crypto and digital-asset news for traders, builders, and curious newcomers."
+  daily_video_limit: 5
+
+# ---------------------------------------------------------------------------
+# News Discovery
+# ---------------------------------------------------------------------------
+discovery:
+  provider: "newsdata"            # "newsdata" or "rss" or "both"
+  max_stories_per_search: 20
+  max_age_hours: 48               # Reject stories older than this
+  search_topics:
+    - "bitcoin"
+    - "ethereum"
+    - "solana"
+    - "stablecoins"
+    - "crypto regulation"
+    - "bitcoin ETF"
+    - "ethereum ETF"
+    - "crypto exchange"
+    - "token treasury strategy"
+    - "on-chain security"
+    - "crypto hacks"
+    - "defi"
+    - "crypto mining"
+    - "digital asset policy"
+    - "institutional crypto adoption"
+  
+  # Topics to filter OUT
+  exclude_keywords:
+    - "NFT"
+    - "meme coin"
+    - "horoscope"
+    - "celebrity gossip"
+
+# ---------------------------------------------------------------------------
+# Scoring
+# ---------------------------------------------------------------------------
+scoring:
+  minimum_score: 55               # Stories below this are rejected
+  weights:
+    freshness: 0.15
+    source_credibility: 0.15
+    relevance: 0.20
+    viral_potential: 0.10
+    educational_value: 0.15
+    business_angle: 0.10
+    visual_potential: 0.05
+    explainability: 0.10
+
+# ---------------------------------------------------------------------------
+# Script Generation
+# ---------------------------------------------------------------------------
+scripts:
+  llm_model: "gpt-oss-120b"  # Use "x-ai/grok-4.3" for Grok via Hack Club API
+  target_word_count_min: 80
+  target_word_count_max: 120
+  target_duration_min: 25         # seconds
+  target_duration_max: 45         # seconds
+  max_retries: 2                  # Retry script generation on quality failure
+  
+  # LLM settings
+  llm_temperature: 0.8           # Slightly creative but grounded
+
+# ---------------------------------------------------------------------------
+# Voice / TTS
+# ---------------------------------------------------------------------------
+voice:
+  provider: "edge-tts"
+  model: "tts-1-hd"
+  default_voice: "en-US-JennyNeural"
+  speed: 1.05                    # Slightly faster for energy
+  
+  # Voice mapping by story tone
+  tone_voices:
+    startup_funding: "en-US-AriaNeural"
+    developer_tools: "en-US-JennyNeural"
+    ai_safety: "en-US-AriaNeural"
+    product_launch: "en-US-JennyNeural"
+    layoffs_hiring: "en-US-AriaNeural"
+    general: "en-US-JennyNeural"
+
+# ---------------------------------------------------------------------------
+# Captions
+# ---------------------------------------------------------------------------
+captions:
+  whisper_model: "base"           # tiny, base, small, medium, large
+  words_per_line: 2               # Max words per caption line
+  highlight_companies: true       # Highlight company names
+  highlight_numbers: true         # Highlight numbers/stats
+
+# ---------------------------------------------------------------------------
+# Video Rendering
+# ---------------------------------------------------------------------------
+video:
+  width: 1440
+  height: 1440
+  fps: 30
+  quality: "high"                 # "low" (fast), "medium", "high"
+  
+  # Color palettes that rotate across videos
+  accent_colors:
+    - [255, 255, 255]             # White
+
+  # Font settings
+  font_family: "HelveticaNeue.ttc"
+  hook_font_size: 72
+  body_font_size: 48
+  caption_font_size: 56
+  source_font_size: 24
+  
+  # Progress bar
+  show_progress_bar: false
+  progress_bar_height: 4
+  
+  # Source credit
+  show_source_footer: false
+
+# ---------------------------------------------------------------------------
+# Quality Gate
+# ---------------------------------------------------------------------------
+quality:
+  strictness: "medium"            # "low", "medium", "high"
+  min_quality_score: 60
+  
+  # Individual check thresholds
+  min_hook_strength: 50
+  max_source_similarity: 0.7     # Reject if >70% similar to source
+  require_commentary: true
+  require_why_it_matters: true
+  require_sources: true
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+output:
+  folder: "./output"
+  render_video: true              # false = generate scripts only
+  generate_thumbnail: true
+  
+  # Naming: {date}_{slug}
+  naming_format: "{date}_{slug}"
+
+# ---------------------------------------------------------------------------
+# Distribution / Neural Drop Promotion
+# ---------------------------------------------------------------------------
+distribution:
+  brand_name: "Neural Drop"
+  link: "bit.ly/neural-drop"
+  tagline: "The 3-minute AI briefing for students, builders, and creators."
+  cta_prompt: "Get the daily AI briefing >>"
+  cta_texts:
+    - "Get the daily AI briefing >> bit.ly/neural-drop"
+    - "Top 5 AI moves daily >> bit.ly/neural-drop"
+    - "Stay ahead of AI >> bit.ly/neural-drop"
+  caption_cta: "Full AI briefing in bio >> Neural Drop"
+  pinned_comment: "I post the full daily AI briefing on Neural Drop -- link in bio."
+  hashtags:
+    - "#NeuralDrop"
+    - "#AIBriefing"
+    - "#AIDrops"
+    - "#DailyAI"
+  cta_duration_seconds: 3.5
+  show_cta_overlay: true
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: "INFO"                   # DEBUG, INFO, WARNING, ERROR
+  log_file: "./data/pipeline.log"

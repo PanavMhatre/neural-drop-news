@@ -1,0 +1,86 @@
+name: Daily Crypto News
+
+on:
+  schedule:
+    # 9:00 AM ET = 13:00 UTC  — change the hour to suit your timezone
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+    inputs:
+      count:
+        description: Number of clips to generate (default 5)
+        default: '5'
+        required: false
+      topic:
+        description: Optional topic override (leave blank for auto)
+        default: ''
+        required: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180        # 3 hours max — ffmpeg + torch install are slow
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ── System deps ───────────────────────────────────────────────────────
+      - name: Install ffmpeg and audio libs
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y ffmpeg libsndfile1 fonts-liberation
+
+      # ── Python ────────────────────────────────────────────────────────────
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install python-slugify
+          pip install -r requirements.txt
+
+      # ── Persist SQLite DB between runs (dedup memory) ────────────────────
+      - name: Restore dedup database
+        uses: actions/cache@v4
+        with:
+          path: data/news_shorts.db
+          key: dedup-db-${{ github.run_number }}
+          restore-keys: dedup-db-
+
+      - name: Ensure data dir exists
+        run: mkdir -p data output
+
+      # ── Run pipeline ──────────────────────────────────────────────────────
+      - name: Generate clips and schedule to Buffer
+        env:
+          OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
+          NEWSDATA_API_KEY:         ${{ secrets.NEWSDATA_API_KEY }}
+          BUFFER_API_KEY:           ${{ secrets.BUFFER_API_KEY }}
+          BUFFER_PROFILE_NAME:      NeuralDropBits
+          BUFFER_CHANNEL_IDS:       ${{ secrets.BUFFER_CHANNEL_IDS }}
+          DISCORD_WEBHOOK_URL:      ${{ secrets.DISCORD_WEBHOOK_URL }}
+          # Token for panavm12-jpg/storage writes (add this PAT as a secret)
+          GITHUB_TOKEN:             ${{ secrets.GITHUB_STORAGE_TOKEN }}
+          GITHUB_STORAGE_REPO:      panavm12-jpg/storage
+          GITHUB_STORAGE_BRANCH:    main
+          GITHUB_STORAGE_PREFIX:    news
+        run: |
+          COUNT=${{ github.event.inputs.count || '5' }}
+          TOPIC="${{ github.event.inputs.topic }}"
+          if [ -n "$TOPIC" ]; then
+            python run_daily.py --count "$COUNT" --topic "$TOPIC"
+          else
+            python run_daily.py --count "$COUNT"
+          fi
+
+      # ── Upload run artifacts (for debugging) ─────────────────────────────
+      - name: Upload output artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: news-output-${{ github.run_number }}
+          path: output/
+          retention-days: 7
