@@ -95,6 +95,8 @@ class SmartBRollAgent:
             "sleep_interval": 3,
             "max_sleep_interval": 8,
             "retries": 5,
+            # ios client bypasses bot detection from CI IPs
+            "extractor_args": {"youtube": {"player_client": ["ios"]}},
         }
         if cookie_path:
             opts["cookiefile"] = str(cookie_path)

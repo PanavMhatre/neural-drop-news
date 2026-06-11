@@ -64,6 +64,8 @@ def download_video(video_id: str, label: str) -> bool:
         "sleep_interval": 3,
         "max_sleep_interval": 8,
         "retries": 5,
+        # ios client bypasses bot detection from CI IPs; android requires valid session
+        "extractor_args": {"youtube": {"player_client": ["ios"]}},
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
