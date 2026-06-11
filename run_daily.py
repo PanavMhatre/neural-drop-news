@@ -31,13 +31,23 @@ def main(count: int = 7, topic: str | None = None, manifest: str | None = None, 
 
     pipeline = Pipeline()
 
-    # If the cloud curator sent a pre-selected manifest, inject those URLs as topics
+    # If the cloud curator sent a pre-selected manifest, use it
     if manifest:
         stories = json.loads(manifest)
-        logger.info(f"Manifest provided: {len(stories)} pre-selected stories")
+        # Sort by curator priority (highest first) then topic_affinity as tiebreaker
+        stories.sort(key=lambda s: (s.get("priority", 5), s.get("topic_affinity", 0)), reverse=True)
+        logger.info(
+            f"Curator manifest: {len(stories)} stories — "
+            f"top: '{stories[0].get('title', '')[:60]}' (priority={stories[0].get('priority', 5)})"
+        )
         packages = []
         for story in stories[:count]:
             url = story.get("video_url") or story.get("article_url")
+            if not url:
+                continue
+            reason = story.get("reason", "")
+            if reason:
+                logger.info(f"  Curator reason: {reason}")
             pkgs = pipeline.generate(topic=url, count=1)
             packages.extend(pkgs)
     else:

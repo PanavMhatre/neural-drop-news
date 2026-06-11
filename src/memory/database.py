@@ -375,6 +375,19 @@ class Database:
 
     # ----- Stats -----
 
+    def get_recent_packages(self, limit: int = 10) -> list[dict]:
+        """Return the most recently generated packages — used by curator brief."""
+        conn = self._get_connection()
+        rows = conn.execute(
+            "SELECT package_id, hook_text, quality_score, created_at FROM generated_videos "
+            "ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            {"package_id": r[0], "title": r[1], "quality_score": r[2], "created_at": r[3]}
+            for r in rows
+        ]
+
     def get_stats(self) -> dict:
         """Get database statistics."""
         conn = self._get_connection()
