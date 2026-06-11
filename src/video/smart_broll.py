@@ -73,6 +73,14 @@ class SmartBRollAgent:
             self.model = "gpt-4o-mini"
 
     def _ydl_opts(self, outtmpl: str | None = None) -> dict:
+        # Python yt_dlp library does NOT read ~/.config/yt-dlp/config — must pass explicitly
+        cookie_path = Path(self.cookies_file) if self.cookies_file else Path.home() / ".config/yt-dlp/cookies.txt"
+        if cookie_path.exists():
+            logger.info(f"yt-dlp cookies: {cookie_path} ({cookie_path.stat().st_size} bytes)")
+        else:
+            logger.warning(f"No yt-dlp cookie file at {cookie_path} — YouTube may block downloads")
+            cookie_path = None
+
         opts = {
             "format": "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
             "outtmpl": outtmpl or str(self.output_dir / "source_video.%(ext)s"),
@@ -83,14 +91,13 @@ class SmartBRollAgent:
             "noplaylist": True,
             "quiet": False,
             "no_warnings": False,
-            # Cookies and sleep config auto-read from ~/.config/yt-dlp/cookies.txt
-            # and ~/.config/yt-dlp/config — written by the workflow before pipeline runs
+            "sleep_interval_requests": 2,
+            "sleep_interval": 3,
+            "max_sleep_interval": 8,
+            "retries": 5,
         }
-        cookie_path = Path.home() / ".config/yt-dlp/cookies.txt"
-        if cookie_path.exists():
-            logger.info(f"yt-dlp cookies present: {cookie_path} ({cookie_path.stat().st_size} bytes)")
-        else:
-            logger.warning(f"No yt-dlp cookie file at {cookie_path} — YouTube may block downloads")
+        if cookie_path:
+            opts["cookiefile"] = str(cookie_path)
         return opts
 
     def acquire_media(self, script: GeneratedScript, story: RawStory, accent_color: tuple) -> dict[str, str]:

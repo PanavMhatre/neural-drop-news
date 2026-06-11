@@ -53,13 +53,17 @@ def search_youtube(query: str) -> str | None:
 
 def download_video(video_id: str, label: str) -> bool:
     url = f"https://www.youtube.com/watch?v={video_id}"
-    # No cookiefile, no extractor_args — yt-dlp reads ~/.config/yt-dlp/cookies.txt
-    # and ~/.config/yt-dlp/config automatically
     opts = {
         "format": "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
         "outtmpl": str(OUTPUT_DIR / f"{label}.%(ext)s"),
         "noplaylist": True,
         "quiet": False,
+        # Python yt_dlp library does NOT read ~/.config/yt-dlp/config — must pass explicitly
+        "cookiefile": str(COOKIE_FILE) if COOKIE_FILE.exists() else None,
+        "sleep_interval_requests": 2,
+        "sleep_interval": 3,
+        "max_sleep_interval": 8,
+        "retries": 5,
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
