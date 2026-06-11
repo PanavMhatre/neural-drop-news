@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -15,6 +16,9 @@ from src.video.engagement_crop import engagement_window_start
 logger = logging.getLogger(__name__)
 
 PIXABAY_API_URL = "https://pixabay.com/api/videos/"
+YOUTUBE_SEARCH_API = "https://www.googleapis.com/youtube/v3/search"
+# Standard yt-dlp cookie location written by the workflow
+YTDLP_COOKIE_PATH = str(Path.home() / ".config/yt-dlp/cookies.txt")
 
 CRYPTO_PIXABAY_KEYWORDS = {
     "bitcoin": "bitcoin cryptocurrency",
@@ -53,8 +57,12 @@ class SmartBRollAgent:
         self.output_dir = Path(output_dir) / "media"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.client = openai_client
-        self.cookies_file = os.getenv("YOUTUBE_COOKIES_FILE", "")
         self.pixabay_api_key = os.getenv("PIXABAY_API_KEY", "")
+        self.youtube_api_key = os.getenv("YOUTUBE_API_KEY", "")
+
+        # Cookie file: env override or standard yt-dlp location written by workflow
+        cookie_env = os.getenv("YOUTUBE_COOKIES_FILE", "")
+        self.cookies_file = cookie_env if cookie_env else YTDLP_COOKIE_PATH
 
         import yaml
         try:
@@ -64,10 +72,10 @@ class SmartBRollAgent:
         except Exception:
             self.model = "gpt-4o-mini"
 
-    def _ydl_opts(self) -> dict:
+    def _ydl_opts(self, outtmpl: str | None = None) -> dict:
         opts = {
-            "format": "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-            "outtmpl": str(self.output_dir / "source_video.%(ext)s"),
+            "format": "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "outtmpl": outtmpl or str(self.output_dir / "source_video.%(ext)s"),
             "writesubtitles": True,
             "writeautomaticsub": True,
             "subtitleslangs": ["en"],
@@ -75,10 +83,19 @@ class SmartBRollAgent:
             "noplaylist": True,
             "quiet": False,
             "no_warnings": False,
+            # Sleep between requests to avoid rate limiting
+            "sleep_interval": 2,
+            "max_sleep_interval": 5,
+            "sleep_interval_requests": 1,
+            # Retry on transient errors
+            "retries": 3,
+            "fragment_retries": 3,
         }
-        if self.cookies_file and Path(self.cookies_file).exists():
+        if Path(self.cookies_file).exists():
             opts["cookiefile"] = self.cookies_file
-            logger.info("Using YouTube cookies file")
+            logger.info(f"Using cookies: {self.cookies_file}")
+        else:
+            logger.warning(f"Cookie file not found: {self.cookies_file}")
         return opts
 
     def acquire_media(self, script: GeneratedScript, story: RawStory, accent_color: tuple) -> dict[str, str]:
@@ -143,9 +160,56 @@ class SmartBRollAgent:
 
         return self._youtube_search(title)
 
+    def _youtube_api_search(self, title: str) -> Optional[str]:
+        """Use YouTube Data API v3 to find best video ID — no bot detection on search."""
+        if not self.youtube_api_key:
+            return None
+        try:
+            resp = requests.get(
+                YOUTUBE_SEARCH_API,
+                params={
+                    "key": self.youtube_api_key,
+                    "q": f"{title} crypto news",
+                    "part": "snippet",
+                    "type": "video",
+                    "maxResults": 1,
+                    "videoDuration": "short",
+                    "order": "relevance",
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            items = resp.json().get("items", [])
+            if items:
+                video_id = items[0]["id"]["videoId"]
+                snippet_title = items[0]["snippet"]["title"]
+                logger.info(f"YouTube API found: [{video_id}] {snippet_title}")
+                return video_id
+        except Exception as e:
+            logger.warning(f"YouTube API search failed: {e}")
+        return None
+
     def _youtube_search(self, title: str) -> tuple[Optional[str], Optional[str]]:
+        # Try API search first to get exact video ID, then download that ID
+        video_id = self._youtube_api_search(title)
+        if video_id:
+            url = f"https://www.youtube.com/watch?v={video_id}"
+            logger.info(f"Downloading YouTube video by ID: {video_id}")
+            try:
+                with yt_dlp.YoutubeDL(self._ydl_opts()) as ydl:
+                    ydl.download([url])
+                video_path = next(self.output_dir.glob("source_video.*"), None)
+                subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
+                if video_path and video_path.stat().st_size > 10_000:
+                    logger.info("YouTube video downloaded successfully")
+                    return str(video_path), str(subs_path) if subs_path else None
+            except Exception as e:
+                logger.warning(f"YouTube download by ID failed: {e}")
+            time.sleep(3)  # back off before fallback
+
+        # Fallback: yt-dlp keyword search
         search_query = f"ytsearch1:{title} crypto news"
-        logger.info(f"YouTube search: {search_query}")
+        logger.info(f"YouTube keyword search fallback: {search_query}")
         try:
             with yt_dlp.YoutubeDL(self._ydl_opts()) as ydl:
                 info = ydl.extract_info(search_query, download=True)
@@ -154,10 +218,10 @@ class SmartBRollAgent:
                 video_path = self.output_dir / f"source_video.{ext}"
                 subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
                 if video_path.exists():
-                    logger.info("YouTube search video downloaded successfully")
+                    logger.info("YouTube keyword search downloaded successfully")
                     return str(video_path), str(subs_path) if subs_path else None
         except Exception as e:
-            logger.warning(f"YouTube search failed: {e}")
+            logger.warning(f"YouTube keyword search failed: {e}")
         return None, None
 
     # ── Pixabay ───────────────────────────────────────────────────────────────
