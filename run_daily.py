@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main(count: int = 7, topic: str | None = None, manifest: str | None = None) -> None:
+def main(count: int = 7, topic: str | None = None, manifest: str | None = None, skip_buffer: bool = False) -> None:
     import json
     from src.pipeline import Pipeline
     from src.public_media import public_assets_for_package
@@ -47,6 +47,12 @@ def main(count: int = 7, topic: str | None = None, manifest: str | None = None) 
     if not packages:
         logger.error("Pipeline produced no packages — exiting with failure")
         sys.exit(1)
+
+    if skip_buffer:
+        logger.info(f"Generated {len(packages)} packages — Buffer skipped (diagnostic mode)")
+        for p in packages:
+            logger.info(f"  Package: {p.package_id} → {p.output_dir}")
+        return
 
     logger.info(f"Generated {len(packages)} packages — uploading and scheduling")
 
@@ -88,5 +94,6 @@ if __name__ == "__main__":
     parser.add_argument("--count", type=int, default=5, help="Number of clips to generate")
     parser.add_argument("--topic", type=str, default=None, help="Optional topic override")
     parser.add_argument("--manifest", type=str, default=None, help="JSON manifest from cloud curator")
+    parser.add_argument("--skip-buffer", action="store_true", help="Skip Buffer scheduling (diagnostic/test runs)")
     args = parser.parse_args()
-    main(count=args.count, topic=args.topic, manifest=args.manifest)
+    main(count=args.count, topic=args.topic, manifest=args.manifest, skip_buffer=args.skip_buffer)

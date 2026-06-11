@@ -18,6 +18,10 @@ on:
         description: JSON array of pre-selected stories from the cloud curator (leave blank for auto-discovery)
         default: ''
         required: false
+      skip_buffer:
+        description: Set to "true" to skip Buffer scheduling (test/diagnostic runs)
+        default: 'false'
+        required: false
 
 jobs:
   build-and-publish:
@@ -79,16 +83,21 @@ jobs:
           YOUTUBE_COOKIES_FILE:     /tmp/yt_cookies.txt
           PIXABAY_API_KEY:          ${{ secrets.PIXABAY_API_KEY }}
           ELEVENLABS_API_KEY:       ${{ secrets.ELEVENLABS_API_KEY }}
+          SKIP_BUFFER:              ${{ github.event.inputs.skip_buffer || 'false' }}
         run: |
           COUNT=${{ github.event.inputs.count || '7' }}
           TOPIC="${{ github.event.inputs.topic }}"
           MANIFEST='${{ github.event.inputs.manifest }}'
+          EXTRA=""
+          if [ "${{ github.event.inputs.skip_buffer }}" = "true" ]; then
+            EXTRA="--skip-buffer"
+          fi
           if [ -n "$MANIFEST" ]; then
-            python run_daily.py --count "$COUNT" --manifest "$MANIFEST"
+            python run_daily.py --count "$COUNT" --manifest "$MANIFEST" $EXTRA
           elif [ -n "$TOPIC" ]; then
-            python run_daily.py --count "$COUNT" --topic "$TOPIC"
+            python run_daily.py --count "$COUNT" --topic "$TOPIC" $EXTRA
           else
-            python run_daily.py --count "$COUNT"
+            python run_daily.py --count "$COUNT" $EXTRA
           fi
 
       # ── Upload run artifacts (for debugging) ─────────────────────────────
