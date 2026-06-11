@@ -70,6 +70,10 @@ class StoryScorer:
 
         Combines LLM evaluation with source credibility data.
         """
+        # Pre-check: must have crypto/digital-asset angle
+        if not self._is_crypto_relevant(story):
+            return self._create_rejected(story, "No crypto/digital-asset angle", 0)
+
         # Pre-check: source credibility
         source_score = get_credibility_score(story.source_name, story.source_url)
 
@@ -187,6 +191,19 @@ Score this story and decide whether it should become a short video."""
             raise ValueError(f"LLM refused to score: {refusal}")
 
         return result
+
+    def _is_crypto_relevant(self, story: RawStory) -> bool:
+        """Hard pre-filter: reject anything with no crypto/digital-asset angle."""
+        CRYPTO_KEYWORDS = {
+            "bitcoin", "btc", "ethereum", "eth", "solana", "sol", "crypto",
+            "blockchain", "defi", "stablecoin", "usdt", "usdc", "nft",
+            "altcoin", "token", "wallet", "exchange", "binance", "coinbase",
+            "coindesk", "decrypt", "cointelegraph", "regulation", "sec crypto",
+            "digital asset", "web3", "mining", "halving", "etf bitcoin",
+            "ethereum etf", "on-chain", "satoshi", "dex", "cefi",
+        }
+        text = f"{story.title} {story.snippet or ''}".lower()
+        return any(kw in text for kw in CRYPTO_KEYWORDS)
 
     def _check_freshness(
         self, story: RawStory, max_age_hours: int

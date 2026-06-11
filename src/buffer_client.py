@@ -192,12 +192,11 @@ class BufferClient:
         if service == "instagram":
             extra_input = "metadata: { instagram: { type: reel, shouldShareToFeed: true } }"
         elif service == "youtube":
-            title = text.split("\n")[0][:95] if text else "Tech News Short"
+            title = text.split("\n")[0][:95] if text else "Crypto News Short"
             extra_input = (
                 "metadata: { youtube: { "
                 f"title: {json.dumps(title)}, "
                 f"categoryId: {json.dumps(DEFAULT_YOUTUBE_CATEGORY)}, "
-                "privacyStatus: public, "
                 "madeForKids: false"
                 " } }"
             )
