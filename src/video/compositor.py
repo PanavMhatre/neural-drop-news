@@ -214,16 +214,25 @@ class FrameCompositor:
                 if progress_callback and frame_idx % self.fps == 0:
                     progress_callback(frame_idx / total_frames * 100)
 
-            process.stdin.close()
-            stdout, stderr = process.communicate(timeout=300)
-            
+            try:
+                process.stdin.close()
+            except (BrokenPipeError, ValueError, OSError):
+                pass  # ffmpeg may have closed its end already
+
+            try:
+                stdout, stderr = process.communicate(timeout=300)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+
             # Clean up captures
             for cap in video_captures.values():
                 cap.release()
 
             if process.returncode != 0:
-                logger.error(f"FFmpeg error: {stderr.decode()[:500]}")
-                raise RuntimeError(f"FFmpeg failed with code {process.returncode}")
+                ffmpeg_err = stderr.decode(errors="replace")[-800:] if stderr else ""
+                logger.error(f"FFmpeg error output: {ffmpeg_err}")
+                raise RuntimeError(f"FFmpeg failed (code {process.returncode}): {ffmpeg_err}")
 
             logger.info(f"Video rendered: {output_path}")
             return str(output_file)
