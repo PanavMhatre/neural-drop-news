@@ -62,8 +62,8 @@ jobs:
           BUFFER_PROFILE_NAME:      NeuralDropBits
           BUFFER_CHANNEL_IDS:       ${{ secrets.BUFFER_CHANNEL_IDS }}
           DISCORD_WEBHOOK_URL:      ${{ secrets.DISCORD_WEBHOOK_URL }}
-          # Token for panavm12-jpg/storage writes (add this PAT as a secret)
-          GITHUB_TOKEN:             ${{ secrets.GITHUB_STORAGE_TOKEN }}
+          # Token for panavm12-jpg/storage writes
+          GITHUB_TOKEN:             ${{ secrets.STORAGE_TOKEN }}
           GITHUB_STORAGE_REPO:      panavm12-jpg/storage
           GITHUB_STORAGE_BRANCH:    main
           GITHUB_STORAGE_PREFIX:    news
