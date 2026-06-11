@@ -88,7 +88,7 @@ jobs:
           GITHUB_STORAGE_REPO:      panavm12-jpg/storage
           GITHUB_STORAGE_BRANCH:    main
           GITHUB_STORAGE_PREFIX:    news
-          YOUTUBE_COOKIES_FILE:     ${{ env.HOME }}/.config/yt-dlp/cookies.txt
+          YOUTUBE_COOKIES_FILE:     /home/runner/.config/yt-dlp/cookies.txt
           YOUTUBE_API_KEY:          ${{ secrets.YOUTUBE_API_KEY }}
           PIXABAY_API_KEY:          ${{ secrets.PIXABAY_API_KEY }}
           ELEVENLABS_API_KEY:       ${{ secrets.ELEVENLABS_API_KEY }}

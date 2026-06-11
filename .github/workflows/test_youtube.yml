@@ -35,5 +35,5 @@ jobs:
       - name: Test YouTube download
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          YOUTUBE_COOKIES_FILE: ${{ env.HOME }}/.config/yt-dlp/cookies.txt
+          YOUTUBE_COOKIES_FILE: /home/runner/.config/yt-dlp/cookies.txt
         run: python test_youtube.py
