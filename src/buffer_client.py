@@ -196,7 +196,9 @@ class BufferClient:
             extra_input = (
                 "metadata: { youtube: { "
                 f"title: {json.dumps(title)}, "
-                f"categoryId: {json.dumps(DEFAULT_YOUTUBE_CATEGORY)}"
+                f"categoryId: {json.dumps(DEFAULT_YOUTUBE_CATEGORY)}, "
+                "privacyStatus: public, "
+                "madeForKids: false"
                 " } }"
             )
         else:
