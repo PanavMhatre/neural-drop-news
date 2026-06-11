@@ -217,7 +217,7 @@ class FrameCompositor:
             try:
                 process.stdin.close()
             except (BrokenPipeError, ValueError, OSError):
-                pass  # ffmpeg may have closed its end already
+                process.stdin = None  # prevent communicate() from trying to flush a dead pipe
 
             try:
                 stdout, stderr = process.communicate(timeout=300)

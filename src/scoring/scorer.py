@@ -131,18 +131,26 @@ class StoryScorer:
 
     def score_stories(self, stories: list[RawStory]) -> list[ScoredStory]:
         """Score multiple stories and return sorted by score (descending)."""
+        import time
         scored = []
         for story in stories:
-            try:
-                result = self.score_story(story)
-                scored.append(result)
-                status = "✓" if result.accepted else "✗"
-                logger.info(
-                    f"  {status} [{result.score.total_score:3d}] {story.title[:70]}"
-                )
-            except Exception as e:
-                logger.error(f"Failed to score story: {e}")
-                continue
+            for attempt in range(3):
+                try:
+                    result = self.score_story(story)
+                    scored.append(result)
+                    status = "✓" if result.accepted else "✗"
+                    logger.info(
+                        f"  {status} [{result.score.total_score:3d}] {story.title[:70]}"
+                    )
+                    break
+                except Exception as e:
+                    if "429" in str(e) or "rate" in str(e).lower() or "queue" in str(e).lower():
+                        wait = 30 * (attempt + 1)
+                        logger.warning(f"Rate limited scoring, waiting {wait}s (attempt {attempt+1}/3)")
+                        time.sleep(wait)
+                    else:
+                        logger.error(f"Failed to score story: {e}")
+                        break
 
         # Sort by total score, accepted first
         scored.sort(key=lambda s: (s.accepted, s.score.total_score), reverse=True)

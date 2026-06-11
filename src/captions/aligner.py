@@ -69,7 +69,7 @@ class WhisperAligner:
                 self._model,
                 audio,
                 language="en",
-                vad=True,  # Voice Activity Detection to avoid hallucinations
+                vad=False,  # VAD requires silero interactive trust prompt — keep off for CI
             )
 
             words = []
