@@ -30,8 +30,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python requests
-        run: pip install requests
+      - name: Install Python deps and yt-dlp PO token provider
+        run: pip install requests yt-dlp bgutil-ytdlp-pot-provider
 
       - name: Write yt-dlp cookies
         env:
