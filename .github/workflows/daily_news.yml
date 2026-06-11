@@ -58,7 +58,9 @@ jobs:
 
       # ── YouTube cookies (for yt-dlp bot bypass) ───────────────────────────
       - name: Write YouTube cookies
-        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/yt_cookies.txt
+        run: |
+          printf '%s' "${{ secrets.YOUTUBE_COOKIES }}" > /tmp/yt_cookies.txt
+          echo "Cookie file lines: $(wc -l < /tmp/yt_cookies.txt)"
 
       # ── Run pipeline ──────────────────────────────────────────────────────
       - name: Generate clips and schedule to Buffer

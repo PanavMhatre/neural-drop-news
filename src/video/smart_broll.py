@@ -73,7 +73,8 @@ class SmartBRollAgent:
             "subtitleslangs": ["en"],
             "subtitlesformat": "vtt",
             "noplaylist": True,
-            "quiet": True,
+            "quiet": False,
+            "no_warnings": False,
         }
         if self.cookies_file and Path(self.cookies_file).exists():
             opts["cookiefile"] = self.cookies_file
