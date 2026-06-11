@@ -65,8 +65,8 @@ jobs:
       - name: Ensure data dir exists
         run: mkdir -p data output
 
-      # ── yt-dlp cookies and config (authenticated YouTube session) ───────────
-      - name: Write yt-dlp cookies and config
+      # ── yt-dlp cookies (authenticated YouTube session) ────────────────────
+      - name: Write yt-dlp cookies
         env:
           YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
         run: |
@@ -75,15 +75,28 @@ jobs:
             echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
             echo "Cookies written ($(wc -l < ~/.config/yt-dlp/cookies.txt) lines)."
           fi
-          printf '%s\n' \
-            '--cookies /home/runner/.config/yt-dlp/cookies.txt' \
-            '--no-check-certificate' \
-            '--sleep-requests 2' \
-            '--sleep-interval 3' \
-            '--max-sleep-interval 8' \
-            '--retries 5' \
-            '--retry-sleep 15' \
-            > ~/.config/yt-dlp/config
+
+      # ── yt-dlp config (sleep flags + cookies path) ─────────────────────────
+      - name: Write yt-dlp config
+        run: |
+          python3 - << 'PYEOF'
+          from pathlib import Path
+          config_dir = Path.home() / ".config/yt-dlp"
+          config_dir.mkdir(parents=True, exist_ok=True)
+          cookies = config_dir / "cookies.txt"
+          lines = [
+              "--no-check-certificate",
+              "--sleep-requests 2",
+              "--sleep-interval 3",
+              "--max-sleep-interval 8",
+              "--retries 5",
+              "--retry-sleep 15",
+          ]
+          if cookies.exists():
+              lines.append(f"--cookies {cookies}")
+          (config_dir / "config").write_text("\n".join(lines) + "\n")
+          print("yt-dlp config written.")
+          PYEOF
 
       # ── Run pipeline ──────────────────────────────────────────────────────
       - name: Generate clips and schedule to Buffer

@@ -30,10 +30,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python yt-dlp and requests
-        run: pip install yt-dlp requests
+      - name: Install Python requests
+        run: pip install requests
 
-      - name: Write yt-dlp cookies and config
+      - name: Write yt-dlp cookies
         env:
           YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
         run: |
@@ -45,17 +45,34 @@ jobs:
             echo "ERROR: No YTDLP_COOKIES secret"
             exit 1
           fi
-          printf '%s\n' \
-            '--cookies /home/runner/.config/yt-dlp/cookies.txt' \
-            '--no-check-certificate' \
-            '--sleep-requests 2' \
-            '--sleep-interval 3' \
-            '--max-sleep-interval 8' \
-            '--retries 5' \
-            '--retry-sleep 15' \
-            > ~/.config/yt-dlp/config
-          echo "yt-dlp config written:"
-          cat ~/.config/yt-dlp/config
+
+      - name: Write yt-dlp config
+        run: |
+          python3 - << 'PYEOF'
+          import os
+          from pathlib import Path
+
+          config_dir = Path.home() / ".config/yt-dlp"
+          config_dir.mkdir(parents=True, exist_ok=True)
+          cookies = config_dir / "cookies.txt"
+
+          lines = [
+              "--no-check-certificate",
+              "--sleep-requests 2",
+              "--sleep-interval 3",
+              "--max-sleep-interval 8",
+              "--retries 5",
+              "--retry-sleep 15",
+          ]
+          if cookies.exists():
+              lines.append(f"--cookies {cookies}")
+              print(f"Cookies found: {cookies} ({cookies.stat().st_size} bytes)")
+
+          config_path = config_dir / "config"
+          config_path.write_text("\n".join(lines) + "\n")
+          print(f"Config written to {config_path}:")
+          print(config_path.read_text())
+          PYEOF
 
       - name: Test YouTube download
         env:
