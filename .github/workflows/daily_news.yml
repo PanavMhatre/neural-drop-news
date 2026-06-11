@@ -75,15 +75,15 @@ jobs:
             echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
             echo "Cookies written ($(wc -l < ~/.config/yt-dlp/cookies.txt) lines)."
           fi
-          cat > ~/.config/yt-dlp/config << 'YTDLP_EOF'
---cookies /home/runner/.config/yt-dlp/cookies.txt
---no-check-certificate
---sleep-requests 2
---sleep-interval 3
---max-sleep-interval 8
---retries 5
---retry-sleep 15
-YTDLP_EOF
+          printf '%s\n' \
+            '--cookies /home/runner/.config/yt-dlp/cookies.txt' \
+            '--no-check-certificate' \
+            '--sleep-requests 2' \
+            '--sleep-interval 3' \
+            '--max-sleep-interval 8' \
+            '--retries 5' \
+            '--retry-sleep 15' \
+            > ~/.config/yt-dlp/config
 
       # ── Run pipeline ──────────────────────────────────────────────────────
       - name: Generate clips and schedule to Buffer
