@@ -101,8 +101,8 @@ captions:
 # Video Rendering
 # ---------------------------------------------------------------------------
 video:
-  width: 1440
-  height: 1440
+  width: 1080
+  height: 1920
   fps: 30
   quality: "high"                 # "low" (fast), "medium", "high"
   
