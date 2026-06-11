@@ -217,7 +217,9 @@ class FrameCompositor:
             try:
                 process.stdin.close()
             except (BrokenPipeError, ValueError, OSError):
-                process.stdin = None  # prevent communicate() from trying to flush a dead pipe
+                pass
+            finally:
+                process.stdin = None  # always clear — communicate() flushes stdin if not None
 
             try:
                 stdout, stderr = process.communicate(timeout=300)
