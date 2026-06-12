@@ -192,20 +192,12 @@ class BufferClient:
         if service == "instagram":
             extra_input = "metadata: { instagram: { type: reel, shouldShareToFeed: true } }"
         elif service == "youtube":
-<<<<<<< HEAD
-            title = text.split("\n")[0][:95] if text else "Tech News Short"
-=======
             title = text.split("\n")[0][:95] if text else "Crypto News Short"
->>>>>>> c5110f6d4656f2ef15a4b6076aadb6de5ffb5935
             extra_input = (
                 "metadata: { youtube: { "
                 f"title: {json.dumps(title)}, "
                 f"categoryId: {json.dumps(DEFAULT_YOUTUBE_CATEGORY)}, "
-<<<<<<< HEAD
-                "isShort: true"
-=======
                 "madeForKids: false"
->>>>>>> c5110f6d4656f2ef15a4b6076aadb6de5ffb5935
                 " } }"
             )
         else:
@@ -216,12 +208,7 @@ class BufferClient:
           createPost(input: {{
             text: {json.dumps(text)}
             channelId: {json.dumps(channel["id"])}
-<<<<<<< HEAD
             schedulingType: scheduled
-=======
-            schedulingType: automatic
-            mode: customScheduled
->>>>>>> c5110f6d4656f2ef15a4b6076aadb6de5ffb5935
             dueAt: {json.dumps(due_at_utc)}
             assets: [{{ video: {{ {video_asset} }} }}]
             {extra_input}

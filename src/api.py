@@ -380,8 +380,7 @@ def stop_agent():
 @app.get("/api/agent/status")
 def get_agent_status():
     return {"is_running": agent_daemon.is_running}
-<<<<<<< HEAD
-=======
+
 
 
 # ---------------------------------------------------------------------------
@@ -525,4 +524,3 @@ def receive_curator_manifest(background_tasks: BackgroundTasks, payload: dict):
         "processing_count": min(count, len(stories)),
         "top_story": stories_sorted[0].get("title", ""),
     }
->>>>>>> c5110f6d4656f2ef15a4b6076aadb6de5ffb5935
