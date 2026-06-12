@@ -8,10 +8,7 @@ python-dotenv>=1.0.0
 # News Discovery
 feedparser>=6.0.0
 requests>=2.31.0
-<<<<<<< HEAD
-=======
 beautifulsoup4>=4.12.0
->>>>>>> c5110f6d4656f2ef15a4b6076aadb6de5ffb5935
 
 # Dedup / Similarity
 rapidfuzz>=3.6.0
@@ -22,28 +19,18 @@ whisper-timestamped>=1.15.0
 # Video Rendering
 Pillow>=10.3.0
 ffmpeg-python>=0.2.0
-<<<<<<< HEAD
-=======
-opencv-python>=4.8.0
+opencv-python-headless>=4.8.0
 numpy>=1.26.0
 
 # Video download
 yt-dlp>=2024.1.0
-
-# Caption format
 webvtt-py>=0.5.1
-
-# Slug generation
 python-slugify>=8.0.0
->>>>>>> c5110f6d4656f2ef15a4b6076aadb6de5ffb5935
 
 # Logging / Utilities
 rich>=13.7.0
-python-dotenv==1.1.0
-click==8.2.1
-rich==14.0.0
 
-# Added for TTS and LLM fallbacks
+# TTS
 edge-tts==7.2.8
 groq==0.13.0
 
