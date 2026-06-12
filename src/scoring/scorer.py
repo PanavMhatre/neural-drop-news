@@ -55,14 +55,40 @@ Detected tone should be one of: startup_funding, developer_tools, ai_safety, pro
 Map crypto stories to the closest matching category/tone (e.g. Bitcoin ETF → ai_regulation, exchange hack → ai_safety, DeFi protocol launch → product_launch, institutional adoption → startup_funding)."""
 
 
+def _build_groq_clients() -> list:
+    """Build a list of OpenAI-compatible Groq clients from GROQ_API_KEY_1/2/3 or GROQ_API_KEY."""
+    import os
+    keys = []
+    # Support multiple keys for round-robin rotation
+    for var in ("GROQ_API_KEY_1", "GROQ_API_KEY_2", "GROQ_API_KEY_3", "GROQ_API_KEY"):
+        k = os.getenv(var, "")
+        if k and k not in keys:
+            keys.append(k)
+    return [OpenAI(api_key=k, base_url="https://api.groq.com/openai/v1") for k in keys]
+
+
 class StoryScorer:
-    """Scores stories using GPT-4o, source credibility, and channel analytics."""
+    """Scores stories using Groq (round-robin across keys) with OpenAI fallback."""
 
     def __init__(self, client: OpenAI, config: dict, analytics_insights: dict | None = None):
         self.client = client
         self.config = config
         self.min_score = config.get("minimum_score", 55)
         self.model = config.get("llm_model", "gpt-4o")
+
+        # Prefer Groq clients for scoring (fast, no rate-limit pain)
+        self._groq_clients = _build_groq_clients()
+        self._groq_idx = 0
+        if self._groq_clients:
+            logger.info(f"Groq scoring enabled: {len(self._groq_clients)} key(s) in rotation")
+
+    def _next_scoring_client(self):
+        """Return next Groq client in round-robin, or fall back to main client."""
+        if self._groq_clients:
+            client = self._groq_clients[self._groq_idx % len(self._groq_clients)]
+            self._groq_idx += 1
+            return client, "llama-3.3-70b-versatile"
+        return self.client, self.model
         # analytics_insights: output of YouTubeChannelAnalytics.get_performance_insights()
         # Keys used: top_keywords (list of (kw, score)), avg_engagement_30d
         self._top_keywords: dict[str, float] = {}
@@ -184,7 +210,7 @@ class StoryScorer:
         return scored
 
     def _llm_score(self, story: RawStory, source_score: int) -> LLMStoryScore:
-        """Get LLM-based scoring using GPT-4o Structured Outputs."""
+        """Score a story using Groq (round-robin) or fallback client."""
         user_prompt = f"""Evaluate this news story for our crypto news shorts channel (Neural Drop):
 
 Title: {story.title}
@@ -196,8 +222,9 @@ Categories detected so far: {', '.join(c.value for c in story.categories)}
 
 Score this story and decide whether it should become a short video."""
 
-        completion = self.client.beta.chat.completions.parse(
-            model=self.model,
+        scoring_client, scoring_model = self._next_scoring_client()
+        completion = scoring_client.beta.chat.completions.parse(
+            model=scoring_model,
             messages=[
                 {"role": "system", "content": SCORING_SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
