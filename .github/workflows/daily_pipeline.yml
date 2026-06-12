@@ -8,7 +8,7 @@ on:
     inputs:
       count:
         description: "Number of videos to produce"
-        default: "3"
+        default: "2"
       skip_buffer:
         description: "Skip Buffer scheduling (dry run)"
         type: boolean
@@ -21,7 +21,7 @@ on:
 jobs:
   daily-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       # ── Checkout ────────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ jobs:
           GITHUB_STORAGE_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COUNT=${{ github.event.inputs.count || '3' }}
+          COUNT=${{ github.event.inputs.count || '2' }}
           SKIP_BUFFER_FLAG=""
           if [ "${{ github.event.inputs.skip_buffer }}" = "true" ]; then
             SKIP_BUFFER_FLAG="--skip-buffer"
