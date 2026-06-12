@@ -1,7 +1,8 @@
 import os
 import requests
 
-key = "sk-hc-v1-c53f0e8d659c44b3a7b8e19b3c47178b5a753aee27da4e8aa826a2edd6c31dce"
+import os
+key = os.environ.get("OPENAI_API_KEY", "")
 print("Testing Hack Club AI API...")
 res = requests.get("https://ai.hackclub.com/proxy/v1/models", headers={"Authorization": f"Bearer {key}"})
 print(f"Status: {res.status_code}")
