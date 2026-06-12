@@ -23,6 +23,7 @@ class YouTubeChannelAnalytics:
     # ── Public channel stats (no OAuth needed) ──────────────────────────────
 
     def get_channel_id(self, handle_or_name: str) -> Optional[str]:
+<<<<<<< HEAD
         """Resolve a channel handle (@NeuralDropBits) to a channel ID using forHandle."""
         handle = handle_or_name.lstrip("@")
         try:
@@ -32,6 +33,17 @@ class YouTubeChannelAnalytics:
                     "key": self.api_key,
                     "forHandle": handle,
                     "part": "id",
+=======
+        """Resolve a channel handle (@NeuralDropBits) to a channel ID."""
+        try:
+            r = requests.get(
+                f"{YT_API_BASE}/search",
+                params={
+                    "key": self.api_key,
+                    "q": handle_or_name,
+                    "type": "channel",
+                    "part": "id,snippet",
+>>>>>>> c5110f6d4656f2ef15a4b6076aadb6de5ffb5935
                     "maxResults": 1,
                 },
                 timeout=10,
@@ -39,7 +51,11 @@ class YouTubeChannelAnalytics:
             r.raise_for_status()
             items = r.json().get("items", [])
             if items:
+<<<<<<< HEAD
                 return items[0]["id"]
+=======
+                return items[0]["id"]["channelId"]
+>>>>>>> c5110f6d4656f2ef15a4b6076aadb6de5ffb5935
         except Exception as e:
             logger.warning(f"get_channel_id failed: {e}")
         return None

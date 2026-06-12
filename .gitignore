@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 venv/
 output/
 data/
@@ -9,3 +10,17 @@ __pycache__/
 *.mp3
 *.png
 frontend/node_modules/
+=======
+.env
+.env.*
+venv/
+__pycache__/
+*.pyc
+*.pyo
+output/
+data/*.db
+data/*.log
+*.mp3
+*.mp4
+*.wav
+>>>>>>> c5110f6d4656f2ef15a4b6076aadb6de5ffb5935
