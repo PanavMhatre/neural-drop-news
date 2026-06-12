@@ -37,3 +37,4 @@ groq==0.13.0
 # Backend API
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
