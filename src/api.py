@@ -1,0 +1,382 @@
+import json
+import logging
+import os
+import shutil
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from dotenv import load_dotenv
+
+from src.buffer_client import (
+    BufferClient,
+    BufferError,
+    build_post_text,
+    build_service_text_map,
+    is_public_url,
+    package_public_url,
+)
+from src.memory.database import Database
+from src.pipeline import Pipeline
+from src.agent import AutonomousAgent
+from src.publisher import AutoPublisher
+from src.public_media import PublicMediaError, public_assets_for_package
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="TechPulse Shorts API")
+
+agent_daemon = AutonomousAgent()
+publisher_daemon = AutoPublisher()
+
+@app.on_event("startup")
+def startup_event():
+    publisher_daemon.start()
+
+@app.on_event("shutdown")
+def shutdown_event():
+    agent_daemon.stop()
+    publisher_daemon.stop()
+
+# Enable CORS for local Vite dev server
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+DB_PATH = "./data/news_shorts.db"
+OUTPUT_DIRS = ["./output", "./demo/example_output"]
+
+progress_store = {}
+
+
+class ScheduleRequest(BaseModel):
+    scheduled_time: str  # ISO format string
+
+class RenderOptions(BaseModel):
+    topic: Optional[str] = None
+    custom_video_url: Optional[str] = None
+    accent_color_hex: Optional[str] = None
+    tts_voice: Optional[str] = None
+
+def get_db():
+    return Database(db_path=DB_PATH)
+
+def find_package_dir(package_id: str) -> Path | None:
+    """Return a package directory only if it lives directly under a known output dir."""
+    for out_dir in OUTPUT_DIRS:
+        base_path = Path(out_dir).resolve()
+        package_dir = (base_path / package_id).resolve()
+        try:
+            package_dir.relative_to(base_path)
+        except ValueError:
+            continue
+        if package_dir.exists() and package_dir.is_dir():
+            return package_dir
+    return None
+
+def get_public_media_base_url() -> str:
+    base_url = os.getenv("BUFFER_PUBLIC_MEDIA_BASE_URL") or os.getenv("PUBLIC_MEDIA_BASE_URL")
+    if not base_url or not is_public_url(base_url):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Set BUFFER_PUBLIC_MEDIA_BASE_URL to a public HTTPS URL for this API "
+                "before scheduling videos through Buffer."
+            ),
+        )
+    return base_url.rstrip("/")
+
+def get_public_package_media(package_dir: Path) -> tuple[str, str | None]:
+    try:
+        manifest = public_assets_for_package(package_dir)
+    except PublicMediaError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    video_url = manifest.get("assets", {}).get("video.mp4", {}).get("url")
+    thumbnail_url = manifest.get("assets", {}).get("thumbnail.png", {}).get("url")
+    if not video_url or not is_public_url(video_url):
+        raise HTTPException(status_code=502, detail="Video upload did not produce a public HTTPS URL")
+    if thumbnail_url and not is_public_url(thumbnail_url):
+        thumbnail_url = None
+    return video_url, thumbnail_url
+
+@app.get("/api/progress")
+def get_progress():
+    """Get active progress for all currently rendering tasks."""
+    return progress_store
+
+
+@app.get("/api/videos")
+def list_videos():
+    """List all generated videos from output directories."""
+    videos = []
+    for out_dir in OUTPUT_DIRS:
+        base_path = Path(out_dir)
+        if not base_path.exists():
+            continue
+            
+        for package_dir in base_path.iterdir():
+            if package_dir.name == ".DS_Store" or not package_dir.is_dir():
+                continue
+                
+            metadata_path = package_dir / "metadata.json"
+            if not metadata_path.exists():
+                continue
+                
+            try:
+                with open(metadata_path, "r") as f:
+                    metadata = json.load(f)
+                    
+                video_file = package_dir / "video.mp4"
+                has_video = video_file.exists()
+                
+                videos.append({
+                    "id": package_dir.name,
+                    "title": metadata.get("title_options", ["Untitled"])[0],
+                    "description": metadata.get("description", ""),
+                    "hashtags": metadata.get("hashtags", []),
+                    "has_video": has_video,
+                    "created_at": datetime.fromtimestamp(package_dir.stat().st_ctime).isoformat(),
+                    "output_dir": out_dir
+                })
+            except Exception as e:
+                logger.error(f"Failed to parse metadata for {package_dir.name}: {e}")
+                
+    # Sort by newest first
+    videos.sort(key=lambda x: x["created_at"], reverse=True)
+    return {"videos": videos}
+
+
+@app.get("/api/videos/{package_id}")
+def get_video_details(package_id: str):
+    """Get full details for a specific video package."""
+    for out_dir in OUTPUT_DIRS:
+        package_dir = Path(out_dir) / package_id
+        if package_dir.exists():
+            try:
+                with open(package_dir / "metadata.json", "r") as f:
+                    metadata = json.load(f)
+                with open(package_dir / "script.json", "r") as f:
+                    script = json.load(f)
+                with open(package_dir / "quality_report.json", "r") as f:
+                    quality = json.load(f)
+                    
+                return {
+                    "id": package_id,
+                    "metadata": metadata,
+                    "script": script,
+                    "quality_report": quality,
+                    "has_video": (package_dir / "video.mp4").exists()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+                
+    raise HTTPException(status_code=404, detail="Package not found")
+
+
+@app.delete("/api/videos/{package_id}")
+def delete_video(package_id: str):
+    """Delete one generated video package from the local output folders."""
+    package_dir = find_package_dir(package_id)
+    if not package_dir:
+        raise HTTPException(status_code=404, detail="Package not found")
+
+    try:
+        shutil.rmtree(package_dir)
+        db = get_db()
+        try:
+            db.delete_scheduled_post(package_id)
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Failed to delete package {package_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    progress_store.pop(package_id, None)
+    return {"status": "deleted", "package_id": package_id}
+
+
+@app.get("/media/{package_id}/{filename}")
+def get_media(package_id: str, filename: str):
+    """Serve media files (video.mp4, thumbnail.png)."""
+    for out_dir in OUTPUT_DIRS:
+        file_path = Path(out_dir) / package_id / filename
+        if file_path.exists():
+            return FileResponse(str(file_path))
+            
+    raise HTTPException(status_code=404, detail="File not found")
+
+
+@app.get("/api/schedule")
+def get_schedule():
+    """Get all scheduled posts."""
+    db = get_db()
+    try:
+        scheduled = db.get_scheduled_posts()
+        return {"scheduled": scheduled}
+    finally:
+        db.close()
+
+
+@app.post("/api/schedule/{package_id}")
+def schedule_video(package_id: str, req: ScheduleRequest):
+    """Schedule a video through Buffer for the NeuralDropBits account."""
+    package_dir = find_package_dir(package_id)
+    if not package_dir:
+        raise HTTPException(status_code=404, detail="Package not found")
+    if not (package_dir / "video.mp4").exists():
+        raise HTTPException(status_code=400, detail="Package has no rendered video.mp4")
+
+    try:
+        public_base_url = get_public_media_base_url()
+        video_url = package_public_url(public_base_url, package_id, "video.mp4")
+        thumbnail_url = package_public_url(public_base_url, package_id, "thumbnail.png")
+    except HTTPException:
+        video_url, thumbnail_url = get_public_package_media(package_dir)
+    post_text = build_post_text(package_dir)
+    text_by_service = build_service_text_map(package_dir)
+
+    db = get_db()
+    try:
+        results = BufferClient().create_scheduled_video_posts(
+            text=post_text,
+            text_by_service=text_by_service,
+            due_at=req.scheduled_time,
+            video_url=video_url,
+            thumbnail_url=thumbnail_url,
+        )
+        posts = [result["post"] for result in results]
+        channels = [result["channel"] for result in results]
+        channel_names = [
+            f"{channel.get('displayName') or channel.get('name')} ({channel.get('service')})"
+            for channel in channels
+        ]
+        db.schedule_post(
+            package_id,
+            req.scheduled_time,
+            status="buffer_scheduled",
+            buffer_post_id=", ".join(post["id"] for post in posts),
+            buffer_channel_id=", ".join(channel["id"] for channel in channels),
+            buffer_channel_name=", ".join(channel_names),
+            buffer_status="scheduled",
+        )
+        return {
+            "status": "success",
+            "package_id": package_id,
+            "scheduled_time": req.scheduled_time,
+            "buffer_post_ids": [post["id"] for post in posts],
+            "buffer_channels": channel_names,
+        }
+    except BufferError as e:
+        db.schedule_post(
+            package_id,
+            req.scheduled_time,
+            status="buffer_failed",
+            buffer_status="failed",
+            buffer_error=str(e),
+        )
+        raise HTTPException(status_code=502, detail=str(e))
+    finally:
+        db.close()
+
+
+@app.get("/api/buffer/status")
+def get_buffer_status():
+    """Verify the configured Buffer target channels without creating posts."""
+    try:
+        channels = BufferClient().resolve_target_channels()
+        return {
+            "status": "connected",
+            "channels": [
+                {
+                    "id": channel.get("id"),
+                    "channel": channel.get("displayName") or channel.get("name"),
+                    "service": channel.get("service"),
+                    "is_queue_paused": channel.get("isQueuePaused"),
+                }
+                for channel in channels
+            ],
+        }
+    except BufferError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.post("/api/upload")
+async def upload_video(file: UploadFile = File(...)):
+    """Upload a custom B-Roll video."""
+    upload_dir = Path("./data/uploads")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    file_path = upload_dir / file.filename
+    with open(file_path, "wb") as buffer:
+        import shutil
+        shutil.copyfileobj(file.file, buffer)
+        
+    # Return absolute file uri format so the backend parser handles it correctly
+    return {"status": "success", "file_path": f"file://{file_path.absolute()}"}
+
+
+def run_pipeline_task(options: RenderOptions):
+    """Run the pipeline in the background."""
+    try:
+        pipeline = Pipeline()
+        pipeline.generate(count=1, overrides=options.model_dump())
+    except Exception as e:
+        logger.error(f"Pipeline background task failed: {e}")
+
+
+@app.post("/api/generate")
+def trigger_generation(background_tasks: BackgroundTasks, options: RenderOptions):
+    """Trigger a new video generation run with options."""
+    background_tasks.add_task(run_pipeline_task, options)
+    return {"status": "started", "message": "Video generation started in background."}
+
+
+class ReRenderOptions(BaseModel):
+    script_text: Optional[str] = None
+    custom_video_url: Optional[str] = None
+    accent_color_hex: Optional[str] = None
+    tts_voice: Optional[str] = None
+
+def run_re_render_task(package_id: str, overrides: dict):
+    progress_store[package_id] = 0
+    try:
+        def cb(p):
+            progress_store[package_id] = p
+        pipeline = Pipeline()
+        pipeline.re_render_package(package_id, overrides, progress_callback=cb)
+    except Exception as e:
+        logger.error(f"Re-render background task failed: {e}")
+    finally:
+        if package_id in progress_store:
+            del progress_store[package_id]
+
+@app.post("/api/videos/{package_id}/render")
+def trigger_re_render(package_id: str, background_tasks: BackgroundTasks, options: ReRenderOptions):
+    """Trigger a re-render of an existing video with overrides."""
+    background_tasks.add_task(run_re_render_task, package_id, options.model_dump())
+    return {"status": "started", "message": "Re-render started in background."}
+
+@app.post("/api/agent/start")
+def start_agent():
+    agent_daemon.start()
+    return {"status": "success", "message": "Autonomous Agent started."}
+
+@app.post("/api/agent/stop")
+def stop_agent():
+    agent_daemon.stop()
+    return {"status": "success", "message": "Autonomous Agent stopped."}
+
+@app.get("/api/agent/status")
+def get_agent_status():
+    return {"is_running": agent_daemon.is_running}

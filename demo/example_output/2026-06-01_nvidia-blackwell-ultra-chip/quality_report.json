@@ -1,0 +1,51 @@
+{
+  "verdict": "approved",
+  "overall_score": 85,
+  "checks": [
+    {
+      "name": "word_count",
+      "passed": true,
+      "score": 90,
+      "reason": "108 words, within 80-120 range",
+      "suggestion": null
+    },
+    {
+      "name": "original_commentary",
+      "passed": true,
+      "score": 90,
+      "reason": "Has original career angle and business analysis",
+      "suggestion": null
+    },
+    {
+      "name": "why_it_matters",
+      "passed": true,
+      "score": 90,
+      "reason": "Clear relevance section for students/devs",
+      "suggestion": null
+    },
+    {
+      "name": "hook_strength",
+      "passed": true,
+      "score": 82,
+      "reason": "Strong opening with competitive framing",
+      "suggestion": null
+    },
+    {
+      "name": "not_ai_slop",
+      "passed": true,
+      "score": 88,
+      "reason": "Feels authentic with specific details",
+      "suggestion": null
+    },
+    {
+      "name": "sources_present",
+      "passed": true,
+      "score": 90,
+      "reason": "TechCrunch credited",
+      "suggestion": null
+    }
+  ],
+  "warnings": [],
+  "suggested_fixes": [],
+  "safe_to_post": true
+}

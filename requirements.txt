@@ -1,0 +1,34 @@
+# Core
+openai>=1.40.0
+pydantic>=2.7.0
+click>=8.1.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# News Discovery
+feedparser>=6.0.0
+requests>=2.31.0
+
+# Dedup / Similarity
+rapidfuzz>=3.6.0
+
+# Captions (word-level alignment)
+whisper-timestamped>=1.15.0
+
+# Video Rendering
+Pillow>=10.3.0
+ffmpeg-python>=0.2.0
+
+# Logging / Utilities
+rich>=13.7.0
+python-dotenv==1.1.0
+click==8.2.1
+rich==14.0.0
+
+# Added for TTS and LLM fallbacks
+edge-tts==7.2.8
+groq==0.13.0
+
+# Backend API
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0

@@ -1,0 +1,11 @@
+venv/
+output/
+data/
+*.log
+__pycache__/
+*.pyc
+.env
+*.mp4
+*.mp3
+*.png
+frontend/node_modules/

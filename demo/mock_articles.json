@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Nvidia Announces Next-Gen Blackwell Ultra AI Chip With 2x Performance",
+    "url": "https://techcrunch.com/2026/06/01/nvidia-blackwell-ultra-b300",
+    "source_name": "TechCrunch",
+    "source_url": "https://techcrunch.com",
+    "snippet": "Nvidia unveiled its latest AI chip, the Blackwell Ultra B300, at GTC 2026. The chip promises 2x performance over the previous generation and targets enterprise AI training workloads. Major cloud providers including AWS, Google Cloud, and Azure have already committed to deploying the new chips.",
+    "published_at": "2026-06-01T10:00:00Z",
+    "categories": ["nvidia", "ai_chips"]
+  },
+  {
+    "title": "Anthropic Raises $5 Billion Series E at $80 Billion Valuation",
+    "url": "https://bloomberg.com/news/2026/06/01/anthropic-funding-round",
+    "source_name": "Bloomberg",
+    "source_url": "https://bloomberg.com",
+    "snippet": "AI safety startup Anthropic has closed a $5 billion Series E funding round, valuing the company at $80 billion. The round was led by Google and included Amazon, Salesforce Ventures, and several sovereign wealth funds. Anthropic plans to use the funding to develop Claude 4 and expand its enterprise offerings.",
+    "published_at": "2026-06-01T08:30:00Z",
+    "categories": ["anthropic", "ai_funding"]
+  },
+  {
+    "title": "GitHub Copilot Workspace Now Writes Entire Pull Requests Autonomously",
+    "url": "https://theverge.com/2026/06/01/github-copilot-workspace-autonomous",
+    "source_name": "The Verge",
+    "source_url": "https://theverge.com",
+    "snippet": "GitHub has announced that Copilot Workspace can now autonomously write complete pull requests, including code changes, tests, and documentation. The feature uses a multi-agent architecture where specialized AI agents handle different aspects of software development. Early access users report 40% reduction in time spent on routine coding tasks.",
+    "published_at": "2026-06-01T12:00:00Z",
+    "categories": ["developer_tools", "coding_agents"]
+  },
+  {
+    "title": "Apple Debuts On-Device AI Engine in iOS 20 — No Cloud Required",
+    "url": "https://9to5mac.com/2026/06/01/apple-ios-20-on-device-ai",
+    "source_name": "9to5Mac",
+    "source_url": "https://9to5mac.com",
+    "snippet": "At WWDC 2026, Apple revealed a fully on-device AI engine in iOS 20 that can run large language models without any cloud connection. The system uses Apple's custom ML accelerator in the M5 chip to handle tasks like email summarization, code completion, and document analysis entirely on the device, addressing privacy concerns.",
+    "published_at": "2026-06-01T14:00:00Z",
+    "categories": ["apple_ai", "product_launch"]
+  },
+  {
+    "title": "Meta Lays Off 3,000 from Reality Labs, Shifts AI Budget to Open Source Models",
+    "url": "https://reuters.com/technology/2026/06/01/meta-layoffs-reality-labs",
+    "source_name": "Reuters",
+    "source_url": "https://reuters.com",
+    "snippet": "Meta Platforms is laying off approximately 3,000 employees from its Reality Labs division while simultaneously increasing investment in open-source AI models. CEO Mark Zuckerberg stated the company is 'rebalancing toward AI infrastructure that benefits the entire developer ecosystem.' The company plans to release Llama 5 as an open-weight model within six months.",
+    "published_at": "2026-06-01T09:00:00Z",
+    "categories": ["meta_ai", "tech_jobs", "ai_startups"]
+  }
+]

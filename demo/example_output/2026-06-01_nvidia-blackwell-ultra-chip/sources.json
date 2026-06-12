@@ -1,0 +1,9 @@
+{
+  "story_url": "https://example.com/nvidia-blackwell-ultra",
+  "source_name": "TechCrunch",
+  "sources": [
+    "TechCrunch",
+    "https://example.com/nvidia-blackwell-ultra"
+  ],
+  "ai_disclosure": "AI-generated narration (OpenAI tts-1-hd, voice: nova). AI-assisted editing. Sources credited."
+}
