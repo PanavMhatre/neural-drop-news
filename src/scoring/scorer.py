@@ -82,6 +82,11 @@ class StoryScorer:
         if self._groq_clients:
             logger.info(f"Groq scoring enabled: {len(self._groq_clients)} key(s) in rotation")
 
+        self._top_keywords: dict[str, float] = {}
+        if analytics_insights:
+            for kw, score in analytics_insights.get("top_keywords", []):
+                self._top_keywords[kw.lower()] = float(score)
+
     def _next_scoring_client(self):
         """Return next Groq client in round-robin, or fall back to main client."""
         if self._groq_clients:
@@ -89,12 +94,6 @@ class StoryScorer:
             self._groq_idx += 1
             return client, "llama-3.1-8b-instant"
         return self.client, self.model
-        # analytics_insights: output of YouTubeChannelAnalytics.get_performance_insights()
-        # Keys used: top_keywords (list of (kw, score)), avg_engagement_30d
-        self._top_keywords: dict[str, float] = {}
-        if analytics_insights:
-            for kw, score in analytics_insights.get("top_keywords", []):
-                self._top_keywords[kw.lower()] = float(score)
 
     def score_story(self, story: RawStory) -> ScoredStory:
         """
