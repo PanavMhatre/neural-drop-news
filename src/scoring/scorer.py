@@ -87,7 +87,7 @@ class StoryScorer:
         if self._groq_clients:
             client = self._groq_clients[self._groq_idx % len(self._groq_clients)]
             self._groq_idx += 1
-            return client, "llama-3.3-70b-versatile"
+            return client, "llama-3.1-8b-instant"
         return self.client, self.model
         # analytics_insights: output of YouTubeChannelAnalytics.get_performance_insights()
         # Keys used: top_keywords (list of (kw, score)), avg_engagement_30d
