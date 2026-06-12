@@ -134,7 +134,7 @@ jobs:
           YOUTUBE_COOKIES_FILE:     /home/runner/.config/yt-dlp/cookies.txt
           YOUTUBE_API_KEY:          ${{ secrets.YOUTUBE_API_KEY }}
           ZERNIO_API_KEY:           ${{ secrets.ZERNIO_API_KEY }}
-          PIXABAY_API_KEY:          ${{ secrets.PIXABAY_API_KEY }}
+          PEXELS_API_KEY:           ${{ secrets.PEXELS_API_KEY }}
           ELEVENLABS_API_KEY:       ${{ secrets.ELEVENLABS_API_KEY }}
         run: |
           COUNT=${{ github.event.inputs.count || '7' }}

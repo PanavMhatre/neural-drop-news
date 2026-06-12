@@ -14,7 +14,7 @@ from src.video.engagement_crop import engagement_window_start
 
 logger = logging.getLogger(__name__)
 
-PIXABAY_API_URL = "https://pixabay.com/api/videos/"
+PEXELS_API_URL = "https://api.pexels.com/videos/search"
 YOUTUBE_SEARCH_API = "https://www.googleapis.com/youtube/v3/search"
 # Standard yt-dlp cookie location written by the workflow
 YTDLP_COOKIE_PATH = str(Path.home() / ".config/yt-dlp/cookies.txt")
@@ -71,7 +71,7 @@ class SmartBRollAgent:
         self.output_dir = Path(output_dir) / "media"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.client = openai_client
-        self.pixabay_api_key = os.getenv("PIXABAY_API_KEY", "")
+        self.pexels_api_key = os.getenv("PEXELS_API_KEY", "RnbckPtXv2kk3u4CaTIA0jv1T0IxZRT0MTxbd4LDUAw4qUid3KxOtwOY")
         self.youtube_api_key = os.getenv("YOUTUBE_API_KEY", "")
 
         # Cookie file: env override or standard yt-dlp location written by workflow
@@ -121,22 +121,21 @@ class SmartBRollAgent:
 
         media_paths: dict[str, str] = {}
 
-        # Fetch a UNIQUE Pixabay video for EVERY section.
+        # Fetch a UNIQUE Pexels video for EVERY section.
         # Each section gets its own search term for visual variety.
-        # YouTube video is NOT used for b-roll — it's always the same boring clip.
-        logger.info(f"Fetching unique Pixabay video for each of {len(script.visual_plan)} sections...")
+        logger.info(f"Fetching unique Pexels video for each of {len(script.visual_plan)} sections...")
         for i, cue in enumerate(script.visual_plan):
             section = cue.section
-            out_path = self.output_dir / f"{section}_pixabay.mp4"
+            out_path = self.output_dir / f"{section}_pexels.mp4"
             if out_path.exists() and out_path.stat().st_size > 10_000:
-                logger.info(f"Pixabay cache hit for '{section}'")
+                logger.info(f"Pexels cache hit for '{section}'")
                 media_paths[section] = str(out_path)
             else:
-                ppath = self._fetch_pixabay_video_for_section(story.title, section, i)
+                ppath = self._fetch_pexels_video_for_section(story.title, section, i)
                 if ppath:
                     media_paths[section] = ppath
                 else:
-                    logger.warning(f"Pixabay failed for section '{section}', using motion graphic")
+                    logger.warning(f"Pexels failed for section '{section}', using motion graphic")
 
         youtube_succeeded = False
 
@@ -177,7 +176,7 @@ class SmartBRollAgent:
 
         media_paths.update(forward_fill)
 
-        broll_source = "pixabay" if any("pixabay" in p for p in media_paths.values()) else "motion_graphics"
+        broll_source = "pexels" if any("pexels" in p for p in media_paths.values()) else "motion_graphics"
         logger.info(f"B-roll source: {broll_source} | sections covered: {list(media_paths.keys())}")
         return media_paths, broll_source, None
 
@@ -284,76 +283,70 @@ class SmartBRollAgent:
 
     # ── Pixabay ───────────────────────────────────────────────────────────────
 
-    def _fetch_pixabay_video_for_section(self, story_title: str, section: str, index: int) -> Optional[str]:
-        """Fetch a unique Pixabay video using section-specific search terms for visual variety."""
-        if not self.pixabay_api_key:
-            logger.warning("PIXABAY_API_KEY not set")
+    def _fetch_pexels_video_for_section(self, story_title: str, section: str, index: int) -> Optional[str]:
+        """Fetch a unique Pexels video using section-specific search terms for visual variety."""
+        if not self.pexels_api_key:
+            logger.warning("PEXELS_API_KEY not set")
             return None
 
-        # Build an ordered list: section theme first, then story keyword, then broad fallbacks
         section_themes = SECTION_PIXABAY_THEMES.get(section, [])
         story_term = self._pixabay_terms(story_title)
         search_terms = section_themes + [story_term] + [
             t for t in self.FALLBACK_PIXABAY_TERMS if t not in section_themes and t != story_term
         ]
 
-        out_path = self.output_dir / f"{section}_pixabay.mp4"
+        out_path = self.output_dir / f"{section}_pexels.mp4"
+        headers = {"Authorization": self.pexels_api_key}
 
         for term in search_terms:
-            logger.info(f"Pixabay [{section}] searching: '{term}'")
-            # Retry the API search up to 3 times with backoff (handles 502 from CI IPs)
-            resp = None
-            for attempt in range(3):
-                try:
-                    resp = requests.get(
-                        PIXABAY_API_URL,
-                        params={
-                            "key": self.pixabay_api_key,
-                            "q": term,
-                            "video_type": "film",
-                            "per_page": 30,
-                            "safesearch": "true",
-                            "order": "popular",
-                        },
-                        timeout=20,
-                    )
-                    resp.raise_for_status()
-                    break
-                except Exception as e:
-                    wait = [5, 15, 30][attempt]
-                    logger.warning(f"Pixabay search attempt {attempt+1}/3 failed for '{term}': {e} — retrying in {wait}s")
-                    time.sleep(wait)
-                    resp = None
-            if resp is None:
-                continue
-
-            hits = resp.json().get("hits", [])
-            if not hits:
-                continue
-
-            # Use index to pick a different result for each section
-            offset = (index * 5) % len(hits)
-            candidates = hits[offset:offset + 5] or hits[:5]
-
-            for hit in candidates:
-                videos = hit.get("videos", {})
-                vi = videos.get("medium") or videos.get("large") or videos.get("small") or videos.get("tiny")
-                if not vi:
-                    continue
-                try:
-                    dl = requests.get(vi["url"], timeout=60, stream=True)
-                    dl.raise_for_status()
-                    with open(out_path, "wb") as f:
-                        for chunk in dl.iter_content(chunk_size=1 << 16):
-                            f.write(chunk)
-                    if out_path.exists() and out_path.stat().st_size > 10_000:
-                        logger.info(f"Pixabay [{section}] saved ({term}): {out_path}")
-                        return str(out_path)
-                except Exception as e:
-                    logger.warning(f"Pixabay download failed: {e}")
+            logger.info(f"Pexels [{section}] searching: '{term}'")
+            try:
+                resp = requests.get(
+                    PEXELS_API_URL,
+                    headers=headers,
+                    params={"query": term, "per_page": 15, "orientation": "portrait"},
+                    timeout=20,
+                )
+                resp.raise_for_status()
+                videos = resp.json().get("videos", [])
+                if not videos:
                     continue
 
-        logger.error(f"Pixabay exhausted all terms for section '{section}'")
+                # Pick a different video per section using index offset
+                offset = (index * 3) % len(videos)
+                candidates = videos[offset:offset + 3] or videos[:3]
+
+                for video in candidates:
+                    # Pick best quality video file that fits portrait 1080p
+                    files = video.get("video_files", [])
+                    # Prefer HD portrait files, fall back to any
+                    files_sorted = sorted(
+                        [f for f in files if f.get("height", 0) >= 720],
+                        key=lambda f: f.get("height", 0),
+                        reverse=True,
+                    ) or files
+                    if not files_sorted:
+                        continue
+                    url = files_sorted[0].get("link")
+                    if not url:
+                        continue
+                    try:
+                        dl = requests.get(url, timeout=60, stream=True)
+                        dl.raise_for_status()
+                        with open(out_path, "wb") as f:
+                            for chunk in dl.iter_content(chunk_size=1 << 16):
+                                f.write(chunk)
+                        if out_path.exists() and out_path.stat().st_size > 10_000:
+                            logger.info(f"Pexels [{section}] saved ({term}): {out_path}")
+                            return str(out_path)
+                    except Exception as e:
+                        logger.warning(f"Pexels download failed: {e}")
+                        continue
+            except Exception as e:
+                logger.warning(f"Pexels search failed for '{term}': {e}")
+                continue
+
+        logger.error(f"Pexels exhausted all terms for section '{section}'")
         return None
 
     def _pixabay_terms(self, story_title: str) -> str:
@@ -363,7 +356,6 @@ class SmartBRollAgent:
                 return term
         return "cryptocurrency blockchain finance"
 
-    # Broad fallback terms guaranteed to return results on Pixabay
     FALLBACK_PIXABAY_TERMS = [
         "cryptocurrency blockchain",
         "finance technology",
