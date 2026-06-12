@@ -52,6 +52,8 @@ class FrameCompositor:
             Path("/System/Library/Fonts/Helvetica.ttc"),  # macOS fallback
             Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),  # Linux fallback
         ]
+        # Anton is used for captions (Impact-style heavy font)
+        self._anton_path = str(self.font_dir / "Anton" / "Anton-Regular.ttf")
 
         bold_path = None
         regular_path = None
@@ -162,9 +164,9 @@ class FrameCompositor:
         self._fonts["body"] = elem.get_font(
             self._get_font_path("bold"), template.body_font_size
         )
-        self._fonts["caption"] = elem.get_font(
-            self._get_font_path("bold"), template.caption_font_size
-        )
+        # Use Anton (Impact-style) for captions if available, else fall back to bold
+        caption_font_path = self._anton_path if Path(self._anton_path).exists() else self._get_font_path("bold")
+        self._fonts["caption"] = elem.get_font(caption_font_path, template.caption_font_size)
 
         # Build section timeline
         sections = self._build_section_timeline(script, total_duration)

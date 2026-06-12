@@ -49,15 +49,17 @@ jobs:
           pip install opencv-python-headless webvtt-py
 
       # ── Montserrat font ──────────────────────────────────────────────────────
-      - name: Install Montserrat font
+      - name: Install fonts
         run: |
-          mkdir -p assets/fonts/Montserrat
+          mkdir -p assets/fonts/Montserrat assets/fonts/Anton
           wget -q "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Bold.ttf" \
             -O assets/fonts/Montserrat/Montserrat-Bold.ttf
           wget -q "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Black.ttf" \
             -O assets/fonts/Montserrat/Montserrat-Black.ttf
           wget -q "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-SemiBold.ttf" \
             -O assets/fonts/Montserrat/Montserrat-SemiBold.ttf
+          wget -q "https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf" \
+            -O assets/fonts/Anton/Anton-Regular.ttf
 
       # ── Run pipeline ────────────────────────────────────────────────────────
       - name: Run Neural Drop pipeline
@@ -70,8 +72,9 @@ jobs:
           BUFFER_CHANNEL_IDS: ${{ secrets.BUFFER_CHANNEL_IDS }}
           ZERNIO_API_KEY: ${{ secrets.ZERNIO_API_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          GITHUB_STORAGE_REPO: ${{ secrets.GITHUB_STORAGE_REPO }}
-          GITHUB_STORAGE_BRANCH: main
+          STORAGE_REPO: panavm12-jpg/storage
+          STORAGE_BRANCH: main
+          STORAGE_TOKEN: ${{ secrets.STORAGE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           COUNT=${{ github.event.inputs.count || '2' }}

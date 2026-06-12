@@ -29,7 +29,7 @@ def _save_json(path: Path, data: dict) -> None:
 
 
 def _github_token() -> str:
-    token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+    token = os.getenv("STORAGE_TOKEN") or os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
     if token:
         return token
 
@@ -130,8 +130,8 @@ def upload_to_discord(path: Path) -> str:
 
 
 def upload_to_github_storage(path: Path, package_id: str) -> str:
-    repo = os.getenv("GITHUB_STORAGE_REPO", "panavm12-jpg/storage")
-    branch = os.getenv("GITHUB_STORAGE_BRANCH", "main")
+    repo = os.getenv("STORAGE_REPO") or os.getenv("GITHUB_STORAGE_REPO", "panavm12-jpg/storage")
+    branch = os.getenv("STORAGE_BRANCH") or os.getenv("GITHUB_STORAGE_BRANCH", "main")
     prefix = os.getenv("GITHUB_STORAGE_PREFIX", "news")
     _ensure_github_branch(repo, branch)
 
