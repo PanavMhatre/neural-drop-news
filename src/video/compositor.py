@@ -126,9 +126,14 @@ class FrameCompositor:
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        total_frames = int(total_duration * self.fps)
+        # On CI (GitHub Actions) render at 10fps to cut wall time by 3x.
+        # Output is re-stamped to 30fps by FFmpeg so playback is smooth.
+        import os
+        render_fps = 10 if os.getenv("CI") else self.fps
+        total_frames = int(total_duration * render_fps)
         logger.info(
-            f"Rendering {total_frames} frames ({total_duration:.1f}s) at {self.fps}fps"
+            f"Rendering {total_frames} frames ({total_duration:.1f}s) at {render_fps}fps"
+            + (" [CI fast mode]" if render_fps != self.fps else "")
         )
 
         # Pre-load media images and video captures into memory
@@ -165,7 +170,7 @@ class FrameCompositor:
         sections = self._build_section_timeline(script, total_duration)
 
         # Start FFmpeg process
-        ffmpeg_cmd = self._build_ffmpeg_command(output_path, audio_path, total_duration)
+        ffmpeg_cmd = self._build_ffmpeg_command(output_path, audio_path, total_duration, render_fps)
 
         try:
             process = subprocess.Popen(
@@ -176,7 +181,7 @@ class FrameCompositor:
             )
 
             for frame_idx in range(total_frames):
-                frame_time = frame_idx / self.fps
+                frame_time = frame_idx / render_fps
 
                 # Generate frame
                 frame = self._render_frame(
@@ -211,12 +216,12 @@ class FrameCompositor:
                     raise RuntimeError(f"FFmpeg pipe closed at frame {frame_idx}/{total_frames}: {ffmpeg_err}")
 
                 # Log progress every 5 seconds
-                if frame_idx % (self.fps * 5) == 0:
+                if frame_idx % (render_fps * 5) == 0:
                     progress = frame_idx / total_frames * 100
                     logger.info(f"  Rendering: {progress:.0f}% ({frame_time:.1f}s)")
 
                 # Report to UI more frequently (e.g. every second)
-                if progress_callback and frame_idx % self.fps == 0:
+                if progress_callback and frame_idx % render_fps == 0:
                     progress_callback(frame_idx / total_frames * 100)
 
             try:
@@ -680,24 +685,28 @@ class FrameCompositor:
                 cur_x += word_w(word) + (space_w if i < len(line_words) - 1 else 0)
 
     def _build_ffmpeg_command(
-        self, output_path: str, audio_path: str, duration: float
+        self, output_path: str, audio_path: str, duration: float, render_fps: int = None
     ) -> list[str]:
         """Build the FFmpeg command for encoding."""
+        import os
+        in_fps = render_fps or self.fps
+        preset = "ultrafast" if os.getenv("CI") else "faster"
         return [
             "ffmpeg",
-            "-y",  # Overwrite output
+            "-y",
             "-f", "rawvideo",
             "-vcodec", "rawvideo",
             "-s", f"{self.width}x{self.height}",
             "-pix_fmt", "rgb24",
-            "-r", str(self.fps),
-            "-i", "-",  # Pipe input
-            "-i", audio_path,  # Audio input
+            "-r", str(in_fps),   # input frame rate (10fps on CI)
+            "-i", "-",
+            "-i", audio_path,
             "-c:v", "libx264",
             "-profile:v", "baseline",
             "-level", "3.1",
-            "-preset", "faster",
+            "-preset", preset,
             "-crf", "23",
+            "-r", str(self.fps), # output frame rate always 30fps
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",
             "-b:a", "192k",
