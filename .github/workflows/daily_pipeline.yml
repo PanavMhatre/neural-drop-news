@@ -2,8 +2,8 @@ name: Neural Drop Daily Pipeline
 
 on:
   schedule:
-    # 4:00 AM Central Time = 09:00 UTC (CDT/UTC-5)
-    - cron: "0 9 * * *"
+    # 1:00 AM Central Time = 06:00 UTC (CDT/UTC-5)
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       count:
