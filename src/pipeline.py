@@ -72,7 +72,7 @@ class Pipeline:
             
         # Detect Hack Club proxy key or Cerebras key
         base_url = None
-        if api_key.startswith("sk-hc-v1-"):
+        if api_key.startswith("sk-hc-"):
             base_url = "https://ai.hackclub.com/proxy/v1"
             logger.info("Detected Hack Club API key. Using proxy base_url.")
         elif api_key.startswith("csk-"):
