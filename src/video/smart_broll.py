@@ -301,48 +301,57 @@ class SmartBRollAgent:
 
         for term in search_terms:
             logger.info(f"Pixabay [{section}] searching: '{term}'")
-            try:
-                resp = requests.get(
-                    PIXABAY_API_URL,
-                    params={
-                        "key": self.pixabay_api_key,
-                        "q": term,
-                        "video_type": "film",
-                        "per_page": 30,
-                        "safesearch": "true",
-                        "order": "popular",
-                    },
-                    timeout=15,
-                )
-                resp.raise_for_status()
-                hits = resp.json().get("hits", [])
-                if not hits:
-                    continue
-
-                # Use index to pick a different result for each section
-                offset = (index * 5) % len(hits)
-                candidates = hits[offset:offset + 5] or hits[:5]
-
-                for hit in candidates:
-                    videos = hit.get("videos", {})
-                    vi = videos.get("medium") or videos.get("large") or videos.get("small") or videos.get("tiny")
-                    if not vi:
-                        continue
-                    try:
-                        dl = requests.get(vi["url"], timeout=60, stream=True)
-                        dl.raise_for_status()
-                        with open(out_path, "wb") as f:
-                            for chunk in dl.iter_content(chunk_size=1 << 16):
-                                f.write(chunk)
-                        if out_path.exists() and out_path.stat().st_size > 10_000:
-                            logger.info(f"Pixabay [{section}] saved ({term}): {out_path}")
-                            return str(out_path)
-                    except Exception as e:
-                        logger.warning(f"Pixabay download failed: {e}")
-                        continue
-            except Exception as e:
-                logger.warning(f"Pixabay search failed for '{term}': {e}")
+            # Retry the API search up to 3 times with backoff (handles 502 from CI IPs)
+            resp = None
+            for attempt in range(3):
+                try:
+                    resp = requests.get(
+                        PIXABAY_API_URL,
+                        params={
+                            "key": self.pixabay_api_key,
+                            "q": term,
+                            "video_type": "film",
+                            "per_page": 30,
+                            "safesearch": "true",
+                            "order": "popular",
+                        },
+                        timeout=20,
+                    )
+                    resp.raise_for_status()
+                    break
+                except Exception as e:
+                    wait = [5, 15, 30][attempt]
+                    logger.warning(f"Pixabay search attempt {attempt+1}/3 failed for '{term}': {e} — retrying in {wait}s")
+                    time.sleep(wait)
+                    resp = None
+            if resp is None:
                 continue
+
+            hits = resp.json().get("hits", [])
+            if not hits:
+                continue
+
+            # Use index to pick a different result for each section
+            offset = (index * 5) % len(hits)
+            candidates = hits[offset:offset + 5] or hits[:5]
+
+            for hit in candidates:
+                videos = hit.get("videos", {})
+                vi = videos.get("medium") or videos.get("large") or videos.get("small") or videos.get("tiny")
+                if not vi:
+                    continue
+                try:
+                    dl = requests.get(vi["url"], timeout=60, stream=True)
+                    dl.raise_for_status()
+                    with open(out_path, "wb") as f:
+                        for chunk in dl.iter_content(chunk_size=1 << 16):
+                            f.write(chunk)
+                    if out_path.exists() and out_path.stat().st_size > 10_000:
+                        logger.info(f"Pixabay [{section}] saved ({term}): {out_path}")
+                        return str(out_path)
+                except Exception as e:
+                    logger.warning(f"Pixabay download failed: {e}")
+                    continue
 
         logger.error(f"Pixabay exhausted all terms for section '{section}'")
         return None

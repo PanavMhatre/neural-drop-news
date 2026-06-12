@@ -225,7 +225,11 @@ class Pipeline:
                 logger.warning("No stories discovered. Pipeline complete.")
                 return []
 
-            # Step 2: Score and filter
+            # Step 2: Pre-filter to top 10 by heuristic before expensive LLM scoring
+            stories = self._heuristic_prefilter(stories, top_n=10)
+            logger.info(f"Pre-filtered to {len(stories)} stories for LLM scoring")
+
+            # Step 3: Score and filter
             scored = self.score(stories)
             accepted = [s for s in scored if s.accepted]
             logger.info(f"Accepted {len(accepted)}/{len(scored)} stories")
@@ -297,6 +301,37 @@ class Pipeline:
 
         logger.info(f"After dedup: {len(fresh_stories)}/{len(all_stories)} stories are fresh")
         return fresh_stories
+
+    def _heuristic_prefilter(self, stories, top_n: int = 10):
+        """Fast pre-filter before expensive LLM scoring. Ranks by freshness + keyword match."""
+        from datetime import datetime, timezone
+        import re
+
+        high_value = {"bitcoin", "ethereum", "solana", "btc", "eth", "etf", "regulation", "sec",
+                      "hack", "stablecoin", "defi", "institutional", "coinbase", "binance"}
+
+        now = datetime.now(timezone.utc)
+
+        def _score(story):
+            # Freshness: up to 50 pts (24h = 50, 48h = 0)
+            try:
+                pub = story.published_at
+                if pub and pub.tzinfo is None:
+                    from datetime import timezone as _tz
+                    pub = pub.replace(tzinfo=_tz.utc)
+                age_hours = (now - pub).total_seconds() / 3600 if pub else 48
+            except Exception:
+                age_hours = 48
+            freshness = max(0, 50 - age_hours * (50 / 48))
+
+            # Keyword match: up to 50 pts
+            words = set(re.findall(r"\w+", (story.title or "").lower()))
+            kw_score = min(50, len(words & high_value) * 15)
+
+            return freshness + kw_score
+
+        ranked = sorted(stories, key=_score, reverse=True)
+        return ranked[:top_n]
 
     def score(self, stories) -> list[ScoredStory]:
         """Score and rank stories."""
