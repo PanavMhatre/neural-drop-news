@@ -1,0 +1,139 @@
+1
+00:00:00,000 --> 00:00:01,570
+Nvidia just dropped a
+
+2
+00:00:01,570 --> 00:00:03,024
+chip that could change
+
+3
+00:00:03,024 --> 00:00:04,134
+who wins the AI
+
+4
+00:00:04,134 --> 00:00:04,517
+race.
+
+5
+00:00:04,517 --> 00:00:05,435
+At GTC 2026
+
+6
+00:00:05,435 --> 00:00:07,312
+Nvidia announced the Blackwell
+
+7
+00:00:07,312 --> 00:00:08,653
+Ultra B300 their
+
+8
+00:00:08,653 --> 00:00:10,336
+fastest AI training chip
+
+9
+00:00:10,336 --> 00:00:10,720
+ever.
+
+10
+00:00:10,720 --> 00:00:12,098
+It delivers 2x the
+
+11
+00:00:12,098 --> 00:00:13,782
+performance of the previous
+
+12
+00:00:13,782 --> 00:00:14,356
+generation
+
+13
+00:00:14,356 --> 00:00:15,773
+and every major cloud
+
+14
+00:00:15,773 --> 00:00:17,725
+provider is already onboard.
+
+15
+00:00:17,725 --> 00:00:19,562
+This matters because faster
+
+16
+00:00:19,562 --> 00:00:20,980
+chips mean faster AI
+
+17
+00:00:20,980 --> 00:00:21,554
+development.
+
+18
+00:00:21,554 --> 00:00:23,161
+Companies that get access
+
+19
+00:00:23,161 --> 00:00:24,731
+first will ship products
+
+20
+00:00:24,731 --> 00:00:26,417
+months ahead of competitors.
+
+21
+00:00:26,417 --> 00:00:27,681
+If you're a CS
+
+22
+00:00:27,681 --> 00:00:28,254
+student
+
+23
+00:00:28,254 --> 00:00:29,670
+this is the hardware
+
+24
+00:00:29,670 --> 00:00:31,317
+your future employer will
+
+25
+00:00:31,317 --> 00:00:32,427
+be building on.
+
+26
+00:00:32,427 --> 00:00:34,112
+Understanding GPU architecture is
+
+27
+00:00:34,112 --> 00:00:35,720
+becoming a real career
+
+28
+00:00:35,720 --> 00:00:36,293
+advantage.
+
+29
+00:00:36,293 --> 00:00:37,405
+The AI chip war
+
+30
+00:00:37,405 --> 00:00:38,515
+just got a lot
+
+31
+00:00:38,515 --> 00:00:39,396
+more interesting.
+
+32
+00:00:39,396 --> 00:00:41,232
+Nvidia is betting everything
+
+33
+00:00:41,232 --> 00:00:42,534
+on being the picks
+
+34
+00:00:42,534 --> 00:00:43,875
+and shovels of the
+
+35
+00:00:43,875 --> 00:00:44,832
+AI gold rush.

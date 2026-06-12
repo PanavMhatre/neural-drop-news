@@ -1,0 +1,804 @@
+- generic [active] [ref=e1]:
+  - navigation "Accessibility shortcuts":
+    - list:
+      - listitem:
+        - link "Go to navigation":
+          - /url: "#enw-navigation-bar"
+      - listitem:
+        - link "Go to main content":
+          - /url: "#enw-main-content"
+      - listitem:
+        - link "Go to search":
+          - /url: "#search-autocomplete"
+      - listitem:
+        - link "Go to footer":
+          - /url: "#enw-site-footer"
+  - banner [ref=e21]:
+    - generic [ref=e23]:
+      - generic [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - text: English
+      - link "Newsletter Newsletters" [ref=e29] [cursor=pointer]:
+        - /url: /newsletters
+        - img "Newsletter" [ref=e30]
+        - generic [ref=e33]: Newsletters
+      - link "Events Events" [ref=e34] [cursor=pointer]:
+        - /url: https://events.euronews.com/events
+        - img "Events" [ref=e35]
+        - generic [ref=e37]: Events
+      - link "Podcasts" [ref=e38] [cursor=pointer]:
+        - /url: https://podcasts.euronews.com/
+        - img [ref=e39]
+        - generic [ref=e42]: Podcasts
+      - link "Videos" [ref=e43] [cursor=pointer]:
+        - /url: /video
+        - img [ref=e44]
+        - generic [ref=e47]: Videos
+      - link "Africanews" [ref=e48] [cursor=pointer]:
+        - /url: https://www.africanews.com/
+        - img [ref=e49]
+        - generic [ref=e52]: Africanews
+      - generic [ref=e53]:
+        - button "search button" [ref=e54] [cursor=pointer]:
+          - img [ref=e55]
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - combobox "Search" [ref=e60]
+            - status
+          - status
+    - generic [ref=e62]:
+      - link "Go to the Homepage" [ref=e69] [cursor=pointer]:
+        - /url: /
+        - img "Euronews logo" [ref=e70]
+      - navigation [ref=e71]:
+        - list [ref=e72]:
+          - listitem [ref=e73]:
+            - link "Read more about Latest" [ref=e74] [cursor=pointer]:
+              - /url: /just-in
+              - text: Latest
+          - listitem [ref=e75]:
+            - link "Read more about Europe" [ref=e76] [cursor=pointer]:
+              - /url: /my-europe
+              - text: Europe
+          - listitem [ref=e77]:
+            - link "Read more about World" [ref=e78] [cursor=pointer]:
+              - /url: /news
+              - text: World
+          - listitem [ref=e79]:
+            - link "Read more about EU Policy" [ref=e80] [cursor=pointer]:
+              - /url: /tag/eu-policy
+              - text: EU Policy
+          - listitem [ref=e81]:
+            - link "Read more about Business" [ref=e82] [cursor=pointer]:
+              - /url: /business
+              - text: Business
+          - listitem [ref=e83]:
+            - link "Read more about Travel" [ref=e84] [cursor=pointer]:
+              - /url: /travel
+              - text: Travel
+            - generic [ref=e657]:
+              - generic [ref=e658]:
+                - generic [ref=e659]: Categories
+                - list [ref=e660]:
+                  - listitem [ref=e661]:
+                    - link "Read more about Travel News" [ref=e662] [cursor=pointer]:
+                      - /url: /travel/travel-news
+                      - text: Travel News
+                  - listitem [ref=e663]:
+                    - link "Read more about Destinations" [ref=e664] [cursor=pointer]:
+                      - /url: /travel/destinations
+                      - text: Destinations
+                  - listitem [ref=e665]:
+                    - link "Read more about Moments" [ref=e666] [cursor=pointer]:
+                      - /url: /travel/moments
+                      - text: Moments
+                  - listitem [ref=e667]:
+                    - link "Read more about Residences" [ref=e668] [cursor=pointer]:
+                      - /url: /travel/residences
+                      - text: Residences
+                  - listitem [ref=e669]:
+                    - link "Read more about Travel Live TV" [ref=e670] [cursor=pointer]:
+                      - /url: https://www.euronews.com/travel/2025/12/16/euronews-travel-channel-travel-news-guides-magazines-inspiration-247
+                      - text: Travel Live TV
+              - separator [ref=e671]
+              - generic [ref=e672]:
+                - generic [ref=e673]: Programmes
+                - list [ref=e674]:
+                  - listitem [ref=e675]:
+                    - link "Read more about Grand Voyager" [ref=e676] [cursor=pointer]:
+                      - /url: /programs/grand-voyager
+                      - text: Grand Voyager
+                  - listitem [ref=e677]:
+                    - link "Read more about Adventures" [ref=e678] [cursor=pointer]:
+                      - /url: /programs/adventures
+                      - text: Adventures
+                  - listitem [ref=e679]:
+                    - link "Read more about Conscious Travel" [ref=e680] [cursor=pointer]:
+                      - /url: /programs/conscious-travel
+                      - text: Conscious Travel
+                  - listitem [ref=e681]:
+                    - link "Read more about Explore" [ref=e682] [cursor=pointer]:
+                      - /url: /programs/explore
+                      - text: Explore
+                  - listitem [ref=e683]:
+                    - link "Read more about Golf Travel Tales" [ref=e684] [cursor=pointer]:
+                      - /url: /programs/golf-travel-tales
+                      - text: Golf Travel Tales
+                  - listitem [ref=e685]:
+                    - link "Read more about Notes From The Usa" [ref=e686] [cursor=pointer]:
+                      - /url: /programs/notes-from-the-usa
+                      - text: Notes From The Usa
+                  - listitem [ref=e687]:
+                    - link "Read more about Soul Of The South" [ref=e688] [cursor=pointer]:
+                      - /url: /programs/soul-of-the-south
+                      - text: Soul Of The South
+                  - listitem [ref=e689]:
+                    - link "Read more about Taste" [ref=e690] [cursor=pointer]:
+                      - /url: /programs/taste
+                      - text: Taste
+                  - listitem [ref=e691]:
+                    - link "Read more about Women Beyond Borders" [ref=e692] [cursor=pointer]:
+                      - /url: /programs/women-beyond-borders
+                      - text: Women Beyond Borders
+          - listitem [ref=e85]:
+            - link "Read more about Next" [ref=e86] [cursor=pointer]:
+              - /url: /next
+              - text: Next
+          - listitem [ref=e87]:
+            - link "Read more about Culture" [ref=e88] [cursor=pointer]:
+              - /url: /culture
+              - text: Culture
+          - listitem [ref=e89]:
+            - link "Read more about Earth" [ref=e90] [cursor=pointer]:
+              - /url: /earth
+              - text: Earth
+          - listitem [ref=e91]:
+            - link "Read more about Health" [ref=e92] [cursor=pointer]:
+              - /url: /health
+              - text: Health
+          - listitem [ref=e93]:
+            - link "Read more about Euroviews" [ref=e94] [cursor=pointer]:
+              - /url: /tag/euroviews
+              - text: Euroviews
+          - listitem [ref=e95]:
+            - link "Read more about Videos" [ref=e96] [cursor=pointer]:
+              - /url: /video
+              - text: Videos
+        - generic [ref=e98]: More
+      - generic [ref=e99]:
+        - link "Log In" [ref=e101] [cursor=pointer]:
+          - /url: /login
+          - img [ref=e102]
+          - generic [ref=e105]: Log In
+        - link "Live" [ref=e107] [cursor=pointer]:
+          - /url: /live
+  - main [ref=e109]:
+    - article [ref=e111]:
+      - generic [ref=e114]:
+        - generic [ref=e695]:
+          - link "Top News Stories Today" [ref=e696] [cursor=pointer]:
+            - /url: /programs/top-news-stories-today
+            - generic [ref=e697]: Top News Stories Today
+          - heading "Video. Latest news bulletin | June 4th, 2026 – Morning" [level=1] [ref=e698]
+          - list [ref=e699]:
+            - listitem [ref=e700]:
+              - generic "Share this article on Facebook" [ref=e701]
+            - listitem [ref=e702]:
+              - generic "Share this article on Twitter" [ref=e703]:
+                - img "Twitter" [ref=e704]
+            - listitem [ref=e705]:
+              - generic "Share" [ref=e706]
+            - listitem "Copy/paste the article video embed link below:" [ref=e707]
+            - listitem [ref=e708]
+        - generic [ref=e709]:
+          - generic [ref=e711]:
+            - text: "Updated:"
+            - time [ref=e712]: 04/06/2026 - 7:00 GMT+2
+          - generic [ref=e713]:
+            - heading "Catch up with the most important stories from around Europe and beyond this June 4th, 2026 - latest news, breaking news, World, Business, Entertainment, Politics, Culture, Travel." [level=2] [ref=e714]
+            - button "… More" [ref=e715] [cursor=pointer]
+      - generic [ref=e138]:
+        - heading "Top stories" [level=2] [ref=e139]
+        - article [ref=e141]:
+          - figure [ref=e142]:
+            - link "Latest news bulletin | June 4th, 2026 – Morning" [ref=e143] [cursor=pointer]:
+              - /url: /video/2026/06/04/latest-news-bulletin-june-4th-2026-morning
+              - img "Latest news bulletin | June 4th, 2026 – Morning" [ref=e144]
+            - generic [ref=e716]: Now playing
+          - link "Latest news bulletin | June 4th, 2026 – Morning" [ref=e147] [cursor=pointer]:
+            - /url: /video/2026/06/04/latest-news-bulletin-june-4th-2026-morning
+            - heading "Latest news bulletin | June 4th, 2026 – Morning" [level=3] [ref=e148]
+        - article [ref=e150]:
+          - figure [ref=e151]:
+            - link "Latest news bulletin | June 4th, 2026 – Midday" [ref=e152] [cursor=pointer]:
+              - /url: /video/2026/06/04/latest-news-bulletin-june-4th-2026-midday
+              - img "Latest news bulletin | June 4th, 2026 – Midday" [ref=e153]
+            - generic [ref=e717]: Next
+          - link "Latest news bulletin | June 4th, 2026 – Midday" [ref=e156] [cursor=pointer]:
+            - /url: /video/2026/06/04/latest-news-bulletin-june-4th-2026-midday
+            - heading "Latest news bulletin | June 4th, 2026 – Midday" [level=3] [ref=e157]
+        - article [ref=e159]:
+          - figure [ref=e160]:
+            - link "people gather in front of CNews headquarters to protest against former head of RT France Ksenia Fedorova" [ref=e161] [cursor=pointer]:
+              - /url: /video/2026/06/04/france-protesters-rally-outside-cnews-tv-over-alleged-kremlin-influence
+              - img "people gather in front of CNews headquarters to protest against former head of RT France Ksenia Fedorova" [ref=e162]
+          - 'link "France: Protesters rally outside CNews TV over alleged Kremlin influence" [ref=e165] [cursor=pointer]':
+            - /url: /video/2026/06/04/france-protesters-rally-outside-cnews-tv-over-alleged-kremlin-influence
+            - 'heading "France: Protesters rally outside CNews TV over alleged Kremlin influence" [level=3] [ref=e166]'
+        - article [ref=e168]:
+          - figure [ref=e169]:
+            - link "Latest news bulletin | June 3rd, 2026 – Evening" [ref=e170] [cursor=pointer]:
+              - /url: /video/2026/06/03/latest-news-bulletin-june-3rd-2026-evening
+              - img "Latest news bulletin | June 3rd, 2026 – Evening" [ref=e171]
+          - link "Latest news bulletin | June 3rd, 2026 – Evening" [ref=e174] [cursor=pointer]:
+            - /url: /video/2026/06/03/latest-news-bulletin-june-3rd-2026-evening
+            - heading "Latest news bulletin | June 3rd, 2026 – Evening" [level=3] [ref=e175]
+        - article [ref=e177]:
+          - figure [ref=e178]:
+            - link "Rescue worker searches for victims under the rubble of a building that was hit Monday in an Israeli strike in the southern city of Tyre, 2 June, 2026" [ref=e179] [cursor=pointer]:
+              - /url: /2026/06/04/israel-and-lebanon-agree-to-conditional-ceasefire-following-us-led-talks
+              - img "Rescue worker searches for victims under the rubble of a building that was hit Monday in an Israeli strike in the southern city of Tyre, 2 June, 2026" [ref=e180]
+          - link "Hezbollah official says group told Lebanon it rejects proposed truce with Israel" [ref=e183] [cursor=pointer]:
+            - /url: /video/2026/06/04/israel-and-lebanon-agree-to-conditional-ceasefire-following-us-led-talks
+            - heading "Hezbollah official says group rejects proposed truce with Israel" [level=3] [ref=e184]
+        - article [ref=e186]:
+          - figure [ref=e187]:
+            - link "Private security guards restrain and drag a protester during a clash with demonstrators opposing a coastal resort project in Zvërnec, western Albania." [ref=e188] [cursor=pointer]:
+              - /url: /video/2026/06/04/clash-at-protest-against-kushner-linked-albania-resort-project
+              - img "Private security guards restrain and drag a protester during a clash with demonstrators opposing a coastal resort project in Zvërnec, western Albania." [ref=e189]
+          - link "Clash at protest against Kushner linked Albania resort project" [ref=e192] [cursor=pointer]:
+            - /url: /video/2026/06/04/clash-at-protest-against-kushner-linked-albania-resort-project
+            - heading "Clash at protest against Kushner linked Albania resort project" [level=3] [ref=e193]
+        - article [ref=e195]:
+          - figure [ref=e196]:
+            - link "Medics take Dawa Sherpa, a mountain guide who had been missing for several days in the Everest region, for treatment after he arrived at HAMS Hospital in Kathmandu," [ref=e197] [cursor=pointer]:
+              - /url: /2026/06/04/sherpa-guide-missing-on-mount-everest-for-a-week-found-crawling-toward-base-camp
+              - img "Medics take Dawa Sherpa, a mountain guide who had been missing for several days in the Everest region, for treatment after he arrived at HAMS Hospital in Kathmandu," [ref=e198]
+          - link "Sherpa guide believed dead on Everest found alive after a week" [ref=e201] [cursor=pointer]:
+            - /url: /video/2026/06/04/sherpa-guide-missing-on-mount-everest-for-a-week-found-crawling-toward-base-camp
+            - heading "Sherpa guide believed dead on Everest found alive after a week" [level=3] [ref=e202]
+        - article [ref=e204]:
+          - figure [ref=e205]:
+            - link "In this image taken from PA Video, police and protestors clash during a protest following the death of Henry Nowak, an 18-year-old student." [ref=e206] [cursor=pointer]:
+              - /url: /2026/06/03/protests-erupt-in-uk-over-murder-of-18-year-old-student-henry-nowak
+              - img "In this image taken from PA Video, police and protestors clash during a protest following the death of Henry Nowak, an 18-year-old student." [ref=e207]
+          - link "11 officers injured in Henry Nowak murder protests in the UK, police say" [ref=e210] [cursor=pointer]:
+            - /url: /video/2026/06/03/protests-erupt-in-uk-over-murder-of-18-year-old-student-henry-nowak
+            - 'heading "11 officers injured in Henry Nowak murder protests in the UK: police" [level=3] [ref=e211]'
+        - article [ref=e213]:
+          - figure [ref=e214]:
+            - link "A plume of black smoke is seen over the port of St. Petersburg, Russia, Wednesday, June 3, 2026, after a Ukrainian drone attack." [ref=e215] [cursor=pointer]:
+              - /url: /my-europe/2026/06/03/ukraine-targets-st-petersburg-as-flagship-economic-forum-opens-in-russia
+              - img "A plume of black smoke is seen over the port of St. Petersburg, Russia, Wednesday, June 3, 2026, after a Ukrainian drone attack." [ref=e216]
+          - link "Ukraine targets St Petersburg as flagship economic forum opens in Russia" [ref=e219] [cursor=pointer]:
+            - /url: /video/2026/06/03/ukraine-targets-st-petersburg-as-flagship-economic-forum-opens-in-russia
+            - heading "Ukraine targets St Petersburg as flagship economic forum opens" [level=3] [ref=e220]
+        - article [ref=e222]:
+          - figure [ref=e223]:
+            - link "A protest in Tirana against a luxury resort planned to be constructed in a nature reserve, 1 June, 2026" [ref=e224] [cursor=pointer]:
+              - /url: /my-europe/2026/06/02/protests-against-luxury-resort-in-albania-linked-to-jared-jushner-now-in-second-day
+              - img "A protest in Tirana against a luxury resort planned to be constructed in a nature reserve, 1 June, 2026" [ref=e225]
+          - link "Protests against luxury resort in Albania linked to Jared Kushner now in second day" [ref=e228] [cursor=pointer]:
+            - /url: /video/2026/06/02/protests-against-luxury-resort-in-albania-linked-to-jared-jushner-now-in-second-day
+            - heading "Protests against Kushner-linked resort in Albania enter second day" [level=3] [ref=e229]
+        - article [ref=e231]:
+          - figure [ref=e232]:
+            - 'link "Henry Nowak stabbing: Key moments from police bodycam footage" [ref=e233] [cursor=pointer]':
+              - /url: /my-europe/2026/06/03/henry-nowak-stabbing-key-moments-from-police-bodycam-footage
+              - 'img "Henry Nowak stabbing: Key moments from police bodycam footage" [ref=e234]'
+          - 'link "Henry Nowak stabbing: Key moments from police bodycam footage" [ref=e237] [cursor=pointer]':
+            - /url: /video/2026/06/03/henry-nowak-stabbing-key-moments-from-police-bodycam-footage
+            - 'heading "Henry Nowak stabbing: Key moments from police bodycam footage" [level=3] [ref=e238]'
+        - article [ref=e240]:
+          - figure [ref=e241]:
+            - link "Tommy Robinson attends a protest outside the police station in Southampton, England, on Tuesday, June 2, 2026, concerning December 2025 stabbing victim Henry Nowak, 18. (Garet" [ref=e242] [cursor=pointer]:
+              - /url: /video/2026/06/03/uk-police-and-protesters-clash-at-southampton-rally-over-student-killing
+              - img "Tommy Robinson attends a protest outside the police station in Southampton, England, on Tuesday, June 2, 2026, concerning December 2025 stabbing victim Henry Nowak, 18. (Garet" [ref=e243]
+          - 'link "UK: Police and protesters clash at Southampton rally over student killing" [ref=e246] [cursor=pointer]':
+            - /url: /video/2026/06/03/uk-police-and-protesters-clash-at-southampton-rally-over-student-killing
+            - 'heading "UK: Police and protesters clash at Southampton rally over student killing" [level=3] [ref=e247]'
+        - article [ref=e249]:
+          - figure [ref=e250]:
+            - link "Dr Cheung Kwok-kwan" [ref=e251] [cursor=pointer]:
+              - /url: /business/2026/06/04/hong-kong-wants-to-be-a-bridge-between-central-asia-and-chinese-businesses
+              - img "Dr Cheung Kwok-kwan" [ref=e252]
+          - link "Hong Kong wants to be a bridge between Central Asia and Chinese businesses" [ref=e255] [cursor=pointer]:
+            - /url: /video/2026/06/04/hong-kong-wants-to-be-a-bridge-between-central-asia-and-chinese-businesses
+            - heading "Hong Kong wants to be a bridge between Central Asia and Chinese businesses" [level=3] [ref=e256]
+        - article [ref=e258]:
+          - figure [ref=e259]:
+            - link "President of Cyprus, Nicos Christodoulides, and President of Kazakhstan, Kassym-Jomart Tokayev" [ref=e260] [cursor=pointer]:
+              - /url: /my-europe/2026/06/04/cyprus-and-kazakhstan-deepen-ties-with-agreements-flights-and-investment-plans
+              - img "President of Cyprus, Nicos Christodoulides, and President of Kazakhstan, Kassym-Jomart Tokayev" [ref=e261]
+          - link "Cyprus and Kazakhstan deepen ties with agreements, flights and investment plans" [ref=e264] [cursor=pointer]:
+            - /url: /video/2026/06/04/cyprus-and-kazakhstan-deepen-ties-with-agreements-flights-and-investment-plans
+            - heading "Cyprus and Kazakhstan deepen ties with agreements, flights and investment plans" [level=3] [ref=e265]
+        - article [ref=e267]:
+          - figure [ref=e268]:
+            - link "In this image provided by Sepahnews of the Iranian Revolutionary Guard on Feb. 16, 2026, shows troops standing at attention during the guard's drill." [ref=e269] [cursor=pointer]:
+              - /url: /my-europe/2026/06/04/social-media-operation-linked-to-iran-manipulated-public-through-fake-irish-and-scottish-p
+              - img "In this image provided by Sepahnews of the Iranian Revolutionary Guard on Feb. 16, 2026, shows troops standing at attention during the guard's drill." [ref=e270]
+          - link "How Iran-linked social media accounts faked Irish and Scottish profiles to manipulate the public" [ref=e273] [cursor=pointer]:
+            - /url: /video/2026/06/04/social-media-operation-linked-to-iran-manipulated-public-through-fake-irish-and-scottish-p
+            - heading "How Iran-linked social media accounts faked Irish and Scottish profiles to manipulate the public" [level=3] [ref=e274]
+        - article [ref=e276]:
+          - figure [ref=e277]:
+            - 'link "FILE: A cleric speaks on his cellphone next to a portrait of Iran''s Supreme Leader Ayatollah Mojtaba Khamenei, in Tehran, 18 May 2026" [ref=e278] [cursor=pointer]':
+              - /url: /2026/06/04/ayatollah-says-iran-delivered-decisive-blow-to-malicious-enemy
+              - 'img "FILE: A cleric speaks on his cellphone next to a portrait of Iran''s Supreme Leader Ayatollah Mojtaba Khamenei, in Tehran, 18 May 2026" [ref=e279]'
+          - link "Ayatollah says Iran delivered 'decisive blow' to 'malicious enemy'" [ref=e282] [cursor=pointer]:
+            - /url: /video/2026/06/04/ayatollah-says-iran-delivered-decisive-blow-to-malicious-enemy
+            - heading "Ayatollah says Iran delivered 'decisive blow' to 'malicious enemy'" [level=3] [ref=e283]
+    - generic [ref=e288]:
+      - generic [ref=e718]: ADVERTISEMENT
+      - generic [ref=e719]:
+        - iframe [ref=e722]:
+          - generic [ref=f26e1]:
+            - link [ref=f26e2] [cursor=pointer]:
+              - /url: https://pagead2.googlesyndication.com/pcs/click?xai=AKAOjss_sUf849kxo5ty6hXAnnyohB720AeulX-7FvEfRC65BE15WYV67Bo4915RwNOqyXTucJhb8M-BLzZ_BMk2l4TWLuAH1WMMvtEmrkFon7EgeusTpa4RZ8ErOngGdsF9zW06qt2t1aPYLMHLO_On9DbpRte1xGlSCyJsn6aEC1ai9O3H1hUFHsjJG4ozJvtDaph41dAOHGi-Rel1dsSroj97XLmZOofi84np1Nbekd4iAV2HzWuC1PbFhQI3o8yTBF7bUnfTtf2DeFWCj9KjcR9wnQmBh7HOgNXNM5EfzKRZjNU02yuKUc8NdU0MNdU23KdqaTwxn1M7f2ukOoPZBjB_31z0TaZqJYZUyVW54IXccrB5Vhk9gTJJqnGIxglLs-n0Jr5lUuKBSCpyR2387itoG6SvJc7F8cT8RHaeMfKB6mAUpMPfCDRbpc74JKFkzsPi8RIZ0iuRJwywW7kmMhQ&sig=Cg0ArKJSzFhghzBFXVdG&fbs_aeid=%5Bgw_fbsaeid%5D&adurl=https://ft.com/%3FsegmentID%3DAdb89a5e-9904-f064-42cd-a8794259c12c
+            - img [ref=f26e6] [cursor=pointer]
+            - button [ref=f26e9] [cursor=pointer]:
+              - img [ref=f26e10]
+        - link "Powered by" [ref=e724] [cursor=pointer]:
+          - /url: https://www.optidigital.com/?utm_medium=aio&utm_source=euronews.com&utm_campaign=optidigital-leaderboard-1
+    - generic [ref=e290]:
+      - heading "More from Top News Stories Today" [level=2] [ref=e293]
+      - generic [ref=e294]:
+        - article [ref=e295]:
+          - figure [ref=e296]:
+            - link "Latest news bulletin | June 3rd, 2026 – Midday" [ref=e297] [cursor=pointer]:
+              - /url: /video/2026/06/03/latest-news-bulletin-june-3rd-2026-midday
+              - img "Latest news bulletin | June 3rd, 2026 – Midday" [ref=e298]
+          - generic [ref=e300]:
+            - link "Top News Stories Today" [ref=e301] [cursor=pointer]:
+              - /url: /programs/top-news-stories-today
+            - link "Latest news bulletin | June 3rd, 2026 – Midday" [ref=e302] [cursor=pointer]:
+              - /url: /video/2026/06/03/latest-news-bulletin-june-3rd-2026-midday
+              - heading "Latest news bulletin | June 3rd, 2026 – Midday" [level=2] [ref=e303]
+        - article [ref=e304]:
+          - figure [ref=e305]:
+            - link "Latest news bulletin | June 3rd, 2026 – Morning" [ref=e306] [cursor=pointer]:
+              - /url: /video/2026/06/03/latest-news-bulletin-june-3rd-2026-morning
+              - img "Latest news bulletin | June 3rd, 2026 – Morning" [ref=e307]
+          - generic [ref=e309]:
+            - link "Top News Stories Today" [ref=e310] [cursor=pointer]:
+              - /url: /programs/top-news-stories-today
+            - link "Latest news bulletin | June 3rd, 2026 – Morning" [ref=e311] [cursor=pointer]:
+              - /url: /video/2026/06/03/latest-news-bulletin-june-3rd-2026-morning
+              - heading "Latest news bulletin | June 3rd, 2026 – Morning" [level=2] [ref=e312]
+        - article [ref=e313]:
+          - figure [ref=e314]:
+            - link "Latest news bulletin | June 2nd, 2026 – Evening" [ref=e315] [cursor=pointer]:
+              - /url: /video/2026/06/02/latest-news-bulletin-june-2nd-2026-evening
+              - img "Latest news bulletin | June 2nd, 2026 – Evening" [ref=e316]
+          - generic [ref=e318]:
+            - link "Top News Stories Today" [ref=e319] [cursor=pointer]:
+              - /url: /programs/top-news-stories-today
+            - link "Latest news bulletin | June 2nd, 2026 – Evening" [ref=e320] [cursor=pointer]:
+              - /url: /video/2026/06/02/latest-news-bulletin-june-2nd-2026-evening
+              - heading "Latest news bulletin | June 2nd, 2026 – Evening" [level=2] [ref=e321]
+        - article [ref=e322]:
+          - figure [ref=e323]:
+            - link "Latest news bulletin | June 2nd, 2026 – Midday" [ref=e324] [cursor=pointer]:
+              - /url: /video/2026/06/02/latest-news-bulletin-june-2nd-2026-midday
+              - img "Latest news bulletin | June 2nd, 2026 – Midday" [ref=e325]
+          - generic [ref=e327]:
+            - link "Top News Stories Today" [ref=e328] [cursor=pointer]:
+              - /url: /programs/top-news-stories-today
+            - link "Latest news bulletin | June 2nd, 2026 – Midday" [ref=e329] [cursor=pointer]:
+              - /url: /video/2026/06/02/latest-news-bulletin-june-2nd-2026-midday
+              - heading "Latest news bulletin | June 2nd, 2026 – Midday" [level=2] [ref=e330]
+    - generic [ref=e332]:
+      - heading "Latest video" [level=2] [ref=e335]
+      - generic [ref=e336]:
+        - article [ref=e337]:
+          - figure [ref=e338]:
+            - link "The full ban on maritime services is currently on hold." [ref=e339] [cursor=pointer]:
+              - /url: /my-europe/2026/06/04/its-not-happening-eu-loses-hope-in-maritime-services-ban-for-russian-tankers
+              - img "The full ban on maritime services is currently on hold." [ref=e340]
+          - generic [ref=e342]:
+            - link "Europe News" [ref=e343] [cursor=pointer]:
+              - /url: /my-europe/europe-news
+            - 'link "''It''s not happening'': EU loses hope in maritime services ban for Russian tankers" [ref=e344] [cursor=pointer]':
+              - /url: /video/2026/06/04/its-not-happening-eu-loses-hope-in-maritime-services-ban-for-russian-tankers
+              - 'heading "''It''s not happening'': EU loses hope in maritime services ban for Russian tankers" [level=2] [ref=e345]'
+        - article [ref=e346]:
+          - figure [ref=e347]:
+            - link "As tourism surges across Europe, tensions with local communities are mounting over access to housing and rising costs." [ref=e348] [cursor=pointer]:
+              - /url: /my-europe/2026/06/04/overtourism-which-european-countries-are-becoming-the-most-hostile-to-travellers
+              - img "As tourism surges across Europe, tensions with local communities are mounting over access to housing and rising costs." [ref=e349]
+          - generic [ref=e351]:
+            - link "Europe in Motion" [ref=e352] [cursor=pointer]:
+              - /url: /programs/europe-in-motion
+            - 'link "Overtourism: Which European countries are becoming the most hostile to travellers?" [ref=e353] [cursor=pointer]':
+              - /url: /video/2026/06/04/overtourism-which-european-countries-are-becoming-the-most-hostile-to-travellers
+              - 'heading "Overtourism: Which European countries are becoming the most hostile to travellers?" [level=2] [ref=e354]'
+        - article [ref=e355]:
+          - figure [ref=e356]:
+            - link "Ghassane Salamé, Lebanese Culture Minister" [ref=e357] [cursor=pointer]:
+              - /url: /my-europe/2026/06/04/lebanon-minister-hopes-new-israel-ceasefire-is-more-genuine-than-previous-truce
+              - img "Ghassane Salamé, Lebanese Culture Minister" [ref=e358]
+          - generic [ref=e360]:
+            - link "Europe Today" [ref=e361] [cursor=pointer]:
+              - /url: /programs/europe-today
+            - link "Lebanon minister hopes new Israel ceasefire is ‘more genuine’ than previous truce" [ref=e362] [cursor=pointer]:
+              - /url: /video/2026/06/04/lebanon-minister-hopes-new-israel-ceasefire-is-more-genuine-than-previous-truce
+              - heading "Lebanon minister hopes new Israel ceasefire is ‘more genuine’ than previous truce" [level=2] [ref=e363]
+        - article [ref=e364]:
+          - figure [ref=e365]:
+            - link "New York Mayor Zohran Mamdani is passed a replica World Cup Trophy by Ezequiel Cecchi, 49, after making a World Cup soccer tournament announcement at Harlem Tavern" [ref=e366] [cursor=pointer]:
+              - /url: /video/2026/06/04/new-york-mayor-mamdani-and-bastian-schweinsteiger-unveil-world-cup-trophy
+              - img "New York Mayor Zohran Mamdani is passed a replica World Cup Trophy by Ezequiel Cecchi, 49, after making a World Cup soccer tournament announcement at Harlem Tavern" [ref=e367]
+          - generic [ref=e369]:
+            - link "Sport" [ref=e370] [cursor=pointer]:
+              - /url: /news/sport
+            - link "New York mayor Mamdani and Bastian Schweinsteiger unveil World Cup trophy" [ref=e371] [cursor=pointer]:
+              - /url: /video/2026/06/04/new-york-mayor-mamdani-and-bastian-schweinsteiger-unveil-world-cup-trophy
+              - heading "New York mayor Mamdani and Bastian Schweinsteiger unveil World Cup trophy" [level=2] [ref=e372]
+        - article [ref=e373]:
+          - figure [ref=e374]:
+            - link "Drone hitting Kuwait International Airport Terminal" [ref=e375] [cursor=pointer]:
+              - /url: /video/2026/06/04/video-shows-moment-drone-hits-kuwait-airport-terminal
+              - img "Drone hitting Kuwait International Airport Terminal" [ref=e376]
+          - generic [ref=e378]:
+            - link "Kuwait" [ref=e379] [cursor=pointer]:
+              - /url: /news/asia/kuwait
+            - link "Video shows moment drone hits Kuwait airport terminal" [ref=e380] [cursor=pointer]:
+              - /url: /video/2026/06/04/video-shows-moment-drone-hits-kuwait-airport-terminal
+              - heading "Video shows moment drone hits Kuwait airport terminal" [level=2] [ref=e381]
+        - article [ref=e382]:
+          - figure [ref=e383]:
+            - link "JJ" [ref=e384] [cursor=pointer]:
+              - /url: /my-europe/2026/06/04/watch-forget-idealismthe-multi-billion-euro-reason-the-eu-wants-the-western-balkans-in-the
+              - img "JJ" [ref=e385]
+          - generic [ref=e387]:
+            - link "Europe Today" [ref=e388] [cursor=pointer]:
+              - /url: /programs/europe-today
+            - 'link "Watch: Forget idealism—the multi-billion euro reason the EU wants the Western Balkans in the bloc" [ref=e389] [cursor=pointer]':
+              - /url: /video/2026/06/04/watch-forget-idealismthe-multi-billion-euro-reason-the-eu-wants-the-western-balkans-in-the
+              - 'heading "Watch: Forget idealism—the multi-billion euro reason the EU wants the Western Balkans in the bloc" [level=2] [ref=e390]'
+        - article [ref=e391]:
+          - figure [ref=e392]:
+            - link "A man searches through a pile of trash for items to salvage in Havana" [ref=e393] [cursor=pointer]:
+              - /url: /video/2026/06/04/cubas-fuel-crisis-leaves-havanas-streets-overflowing-with-rubbish
+              - img "A man searches through a pile of trash for items to salvage in Havana" [ref=e394]
+          - generic [ref=e396]:
+            - link "No Comment" [ref=e397] [cursor=pointer]:
+              - /url: /nocomment
+            - link "Cuba’s fuel crisis leaves Havana’s streets overflowing with rubbish" [ref=e398] [cursor=pointer]:
+              - /url: /video/2026/06/04/cubas-fuel-crisis-leaves-havanas-streets-overflowing-with-rubbish
+              - heading "Cuba’s fuel crisis leaves Havana’s streets overflowing with rubbish" [level=2] [ref=e399]
+        - article [ref=e400]:
+          - figure [ref=e401]:
+            - link "Protesters scuffle with police officers blocking a street during a demonstration in Tirana" [ref=e402] [cursor=pointer]:
+              - /url: /video/2026/06/04/albania-fourth-day-of-unrest-as-trump-linked-resort-sparks-protests
+              - img "Protesters scuffle with police officers blocking a street during a demonstration in Tirana" [ref=e403]
+          - generic [ref=e405]:
+            - link "No Comment" [ref=e406] [cursor=pointer]:
+              - /url: /nocomment
+            - 'link "Albania: Fourth day of unrest as Trump-linked resort sparks protests" [ref=e407] [cursor=pointer]':
+              - /url: /video/2026/06/04/albania-fourth-day-of-unrest-as-trump-linked-resort-sparks-protests
+              - 'heading "Albania: Fourth day of unrest as Trump-linked resort sparks protests" [level=2] [ref=e408]'
+        - article [ref=e409]:
+          - figure [ref=e410]:
+            - link "A World Cup statue, with graffiti that reads in Spanish, \"The National Educational Workers Coordination lives\" lies sideways during a teachers' protest" [ref=e411] [cursor=pointer]:
+              - /url: /video/2026/06/04/world-cup-player-statues-toppled-during-protest-in-mexico-city
+              - img "A World Cup statue, with graffiti that reads in Spanish, \"The National Educational Workers Coordination lives\" lies sideways during a teachers' protest" [ref=e412]
+          - generic [ref=e414]:
+            - link "No Comment" [ref=e415] [cursor=pointer]:
+              - /url: /nocomment
+            - link "World Cup player statues toppled during protest in Mexico City" [ref=e416] [cursor=pointer]:
+              - /url: /video/2026/06/04/world-cup-player-statues-toppled-during-protest-in-mexico-city
+              - heading "World Cup player statues toppled during protest in Mexico City" [level=2] [ref=e417]
+        - article [ref=e418]:
+          - figure [ref=e419]:
+            - link "Euronews" [ref=e420] [cursor=pointer]:
+              - /url: /my-europe/2026/06/04/europe-today-eu-eyes-expansion-at-high-stakes-eu-western-balkans-summit
+              - img "Euronews" [ref=e421]
+          - generic [ref=e423]:
+            - link "Europe Today" [ref=e424] [cursor=pointer]:
+              - /url: /programs/europe-today
+            - 'link "Europe Today: EU eyes expansion at high-stakes EU-Western Balkans summit" [ref=e425] [cursor=pointer]':
+              - /url: /video/2026/06/04/europe-today-eu-eyes-expansion-at-high-stakes-eu-western-balkans-summit
+              - 'heading "Europe Today: EU eyes expansion at high-stakes EU-Western Balkans summit" [level=2] [ref=e426]'
+        - article [ref=e427]:
+          - figure [ref=e428]:
+            - link "The Air and Space Museum near Paris" [ref=e429] [cursor=pointer]:
+              - /url: /culture/2026/06/04/the-festival-of-the-future-is-now-cercle-2026-brings-djs-together-with-esa-astronauts
+              - img "The Air and Space Museum near Paris" [ref=e430]
+          - generic [ref=e432]:
+            - link "Culture news" [ref=e433] [cursor=pointer]:
+              - /url: /culture/culture-news
+            - 'link "The festival of the future is now: Cercle 2026 brings DJs together with ESA astronauts" [ref=e434] [cursor=pointer]':
+              - /url: /video/2026/06/04/the-festival-of-the-future-is-now-cercle-2026-brings-djs-together-with-esa-astronauts
+              - 'heading "The festival of the future is now: Cercle 2026 brings DJs together with ESA astronauts" [level=2] [ref=e435]'
+        - article [ref=e436]:
+          - figure [ref=e437]:
+            - link "Rasa Juknevičienė (EPP) and Merja Kyllönen (The Left)" [ref=e438] [cursor=pointer]:
+              - /url: /my-europe/2026/06/03/what-can-the-eus-ukraine-diplomacy-achieve-meps-in-the-ring
+              - img "Rasa Juknevičienė (EPP) and Merja Kyllönen (The Left)" [ref=e439]
+          - generic [ref=e441]:
+            - link "The Ring" [ref=e442] [cursor=pointer]:
+              - /url: /programs/the-ring
+            - link "What can the EU's Ukraine diplomacy achieve? MEPs in The Ring" [ref=e443] [cursor=pointer]:
+              - /url: /video/2026/06/03/what-can-the-eus-ukraine-diplomacy-achieve-meps-in-the-ring
+              - heading "What can the EU's Ukraine diplomacy achieve? MEPs in The Ring" [level=2] [ref=e444]
+        - article [ref=e445]:
+          - figure [ref=e446]:
+            - link "Protesters scuffle with police officers blocking a street during a demonstration in Tirana, 3 June, 2026" [ref=e447] [cursor=pointer]:
+              - /url: /my-europe/2026/06/03/protests-continue-for-third-day-over-controversial-trump-family-linked-resort-in-albania
+              - img "Protesters scuffle with police officers blocking a street during a demonstration in Tirana, 3 June, 2026" [ref=e448]
+          - generic [ref=e450]:
+            - link "Europe News" [ref=e451] [cursor=pointer]:
+              - /url: /my-europe/europe-news
+            - link "Edi Rama pushes back as Trump family-linked resort protests continue in Albania" [ref=e452] [cursor=pointer]:
+              - /url: /video/2026/06/03/protests-continue-for-third-day-over-controversial-trump-family-linked-resort-in-albania
+              - heading "Edi Rama pushes back as Trump family-linked resort protests continue in Albania" [level=2] [ref=e453]
+        - article [ref=e454]:
+          - figure [ref=e455]:
+            - link "Common two-banded seabream fish swim in the protected area of France's Porquerolles National Park ahead of the U.N. Ocean Conference on June 6, 2025." [ref=e456] [cursor=pointer]:
+              - /url: /my-europe/2026/06/03/all-hands-on-deck-the-eus-92-million-bid-for-a-global-ocean-intelligence-network
+              - img "Common two-banded seabream fish swim in the protected area of France's Porquerolles National Park ahead of the U.N. Ocean Conference on June 6, 2025." [ref=e457]
+          - generic [ref=e459]:
+            - link "Europe News" [ref=e460] [cursor=pointer]:
+              - /url: /my-europe/europe-news
+            - 'link "All hands on deck: the EU''s €92 million bid for a global ocean intelligence network" [ref=e461] [cursor=pointer]':
+              - /url: /video/2026/06/03/all-hands-on-deck-the-eus-92-million-bid-for-a-global-ocean-intelligence-network
+              - 'heading "All hands on deck: the EU''s €92 million bid for a global ocean intelligence network" [level=2] [ref=e462]'
+        - article [ref=e463]:
+          - figure [ref=e464]:
+            - link "Hungarian Prime Minister Peter Magyar." [ref=e465] [cursor=pointer]:
+              - /url: /my-europe/2026/06/03/hungary-lifts-veto-on-ukraines-eu-accession-ending-two-year-deadlock
+              - img "Hungarian Prime Minister Peter Magyar." [ref=e466]
+          - generic [ref=e468]:
+            - link "Europe News" [ref=e469] [cursor=pointer]:
+              - /url: /my-europe/europe-news
+            - link "Magyar claims deal with Ukraine on minority rights to lift veto on EU accession" [ref=e470] [cursor=pointer]:
+              - /url: /video/2026/06/03/hungary-lifts-veto-on-ukraines-eu-accession-ending-two-year-deadlock
+              - heading "Magyar claims deal with Ukraine on minority rights to lift veto on EU accession" [level=2] [ref=e471]
+        - article [ref=e472]:
+          - figure [ref=e473]:
+            - link "Deputy Minister of Migration and International Protection of Cyprus, Nicholas Ioannides, during an interview with Euronews on Wednesday 3 June, 2026" [ref=e474] [cursor=pointer]:
+              - /url: /my-europe/2026/06/03/eu-to-delve-into-human-rights-guarantees-for-migrant-return-hubs-cypriot-minister-says
+              - img "Deputy Minister of Migration and International Protection of Cyprus, Nicholas Ioannides, during an interview with Euronews on Wednesday 3 June, 2026" [ref=e475]
+          - generic [ref=e477]:
+            - link "12 minutes with" [ref=e478] [cursor=pointer]:
+              - /url: /programs/12-minutes-with
+            - link "EU to ‘delve into’ human rights guarantees for migrant return hubs, Cypriot minister says" [ref=e479] [cursor=pointer]:
+              - /url: /video/2026/06/03/eu-to-delve-into-human-rights-guarantees-for-migrant-return-hubs-cypriot-minister-says
+              - heading "EU to ‘delve into’ human rights guarantees for migrant return hubs, Cypriot minister says" [level=2] [ref=e480]
+      - link "See more articles from the Latest video theme" [ref=e484] [cursor=pointer]:
+        - /url: /video
+        - text: All videos
+    - generic [ref=e487]:
+      - link "See all articles on nocomment" [ref=e488] [cursor=pointer]:
+        - /url: /programs/nocomment
+        - img "See all articles on nocomment"
+      - link "See all articles on europe-today" [ref=e489] [cursor=pointer]:
+        - /url: /programs/europe-today
+        - img "See all articles on europe-today"
+      - link "See all articles on the-ring" [ref=e490] [cursor=pointer]:
+        - /url: /programs/the-ring
+        - img "See all articles on the-ring"
+      - link "See all articles on the-cube" [ref=e491] [cursor=pointer]:
+        - /url: /programs/the-cube
+        - img "See all articles on the-cube"
+      - link "See all articles on europe-in-motion" [ref=e492] [cursor=pointer]:
+        - /url: /programs/europe-in-motion
+        - img "See all articles on europe-in-motion"
+      - link "See all articles on 12-minutes-with" [ref=e493] [cursor=pointer]:
+        - /url: /programs/12-minutes-with
+        - img "See all articles on 12-minutes-with"
+    - generic [ref=e496]:
+      - generic: Powered by
+  - contentinfo:
+    - generic [ref=e497]:
+      - generic [ref=e499]:
+        - generic [ref=e500]:
+          - generic [ref=e501]:
+            - combobox "Search" [ref=e502]
+            - status
+          - status
+        - button "search button" [ref=e503] [cursor=pointer]:
+          - img "Search" [ref=e504]
+      - generic [ref=e507]:
+        - paragraph [ref=e508]:
+          - generic [ref=e509]: Browse today's tags
+        - list [ref=e510]:
+          - listitem [ref=e511]:
+            - link "See more articles from the US-Israel attack on Iran 2026 tag" [ref=e513] [cursor=pointer]:
+              - /url: /tag/us-israel-attack-on-iran-2026
+              - text: US-Israel attack on Iran 2026
+          - listitem [ref=e514]:
+            - link "See more articles from the War in Ukraine tag" [ref=e516] [cursor=pointer]:
+              - /url: /tag/war-in-ukraine
+              - text: War in Ukraine
+          - listitem [ref=e517]:
+            - link "See more articles from the United Kingdom tag" [ref=e519] [cursor=pointer]:
+              - /url: /tag/united-kingdom
+              - text: United Kingdom
+          - listitem [ref=e520]:
+            - link "See more articles from the Ukraine tag" [ref=e522] [cursor=pointer]:
+              - /url: /tag/ukraine
+              - text: Ukraine
+          - listitem [ref=e523]:
+            - link "See more articles from the European Union tag" [ref=e525] [cursor=pointer]:
+              - /url: /tag/european-union
+              - text: European Union
+          - listitem [ref=e526]:
+            - link "See more articles from the Protests tag" [ref=e528] [cursor=pointer]:
+              - /url: /tag/protestas
+              - text: Protests
+          - listitem [ref=e529]:
+            - link "See more articles from the France tag" [ref=e531] [cursor=pointer]:
+              - /url: /tag/france
+              - text: France
+          - listitem [ref=e532]:
+            - link "See more articles from the Artificial intelligence tag" [ref=e534] [cursor=pointer]:
+              - /url: /tag/artificial-intelligence
+              - text: Artificial intelligence
+          - listitem [ref=e535]:
+            - link "See more articles from the Russia tag" [ref=e537] [cursor=pointer]:
+              - /url: /tag/russia
+              - text: Russia
+          - listitem [ref=e538]:
+            - link "See more articles from the Technology tag" [ref=e540] [cursor=pointer]:
+              - /url: /tag/technology
+              - text: Technology
+          - listitem [ref=e541]:
+            - link "See more articles from the Energy tag" [ref=e543] [cursor=pointer]:
+              - /url: /tag/energy
+              - text: Energy
+          - listitem [ref=e544]:
+            - link "See more articles from the Donald Trump tag" [ref=e546] [cursor=pointer]:
+              - /url: /tag/donald-trump
+              - text: Donald Trump
+    - generic [ref=e547]:
+      - img "Euronews logo" [ref=e548]
+      - generic [ref=e549]:
+        - generic [ref=e550]:
+          - generic [ref=e551]: Themes
+          - list [ref=e552]:
+            - listitem [ref=e553]:
+              - link "Europe" [ref=e554] [cursor=pointer]:
+                - /url: /my-europe
+            - listitem [ref=e555]:
+              - link "World" [ref=e556] [cursor=pointer]:
+                - /url: /news
+            - listitem [ref=e557]:
+              - link "Business" [ref=e558] [cursor=pointer]:
+                - /url: /business
+            - listitem [ref=e559]:
+              - link "EU Policy" [ref=e560] [cursor=pointer]:
+                - /url: /tag/eu-policy
+            - listitem [ref=e561]:
+              - link "Earth" [ref=e562] [cursor=pointer]:
+                - /url: /earth
+            - listitem [ref=e563]:
+              - link "Next" [ref=e564] [cursor=pointer]:
+                - /url: /next
+            - listitem [ref=e565]:
+              - link "Health" [ref=e566] [cursor=pointer]:
+                - /url: /health
+            - listitem [ref=e567]:
+              - link "Travel" [ref=e568] [cursor=pointer]:
+                - /url: /travel
+            - listitem [ref=e569]:
+              - link "Culture" [ref=e570] [cursor=pointer]:
+                - /url: /culture
+            - listitem [ref=e571]:
+              - link "Videos" [ref=e572] [cursor=pointer]:
+                - /url: /video
+            - listitem [ref=e573]:
+              - link "Programmes" [ref=e574] [cursor=pointer]:
+                - /url: /programs
+        - generic [ref=e575]:
+          - generic [ref=e576]: Services
+          - list [ref=e577]:
+            - listitem [ref=e578]:
+              - link "Live" [ref=e579] [cursor=pointer]:
+                - /url: /live
+            - listitem [ref=e580]:
+              - link "Bulletin" [ref=e581] [cursor=pointer]:
+                - /url: /bulletin
+            - listitem [ref=e582]:
+              - link "Weather" [ref=e583] [cursor=pointer]:
+                - /url: /weather
+            - listitem [ref=e584]:
+              - link "Latest" [ref=e585] [cursor=pointer]:
+                - /url: /just-in
+            - listitem [ref=e586]:
+              - link "Follow us" [ref=e587] [cursor=pointer]:
+                - /url: /follow-us
+            - listitem [ref=e588]:
+              - link "Apps" [ref=e589] [cursor=pointer]:
+                - /url: /apps
+            - listitem [ref=e590]:
+              - link "Messaging apps" [ref=e591] [cursor=pointer]:
+                - /url: /messaging-apps
+            - listitem [ref=e592]:
+              - link "Widgets & Services" [ref=e593] [cursor=pointer]:
+                - /url: /widgets
+            - listitem [ref=e594]:
+              - link "Africanews" [ref=e595] [cursor=pointer]:
+                - /url: https://www.africanews.com/
+            - listitem [ref=e596]:
+              - link "Online Language Courses" [ref=e597] [cursor=pointer]:
+                - /url: /services/learn/languages
+        - generic [ref=e598]:
+          - generic [ref=e599]: More
+          - list [ref=e600]:
+            - listitem [ref=e601]:
+              - link "About Euronews" [ref=e602] [cursor=pointer]:
+                - /url: /about
+            - listitem [ref=e603]:
+              - link "Commercial Services" [ref=e604] [cursor=pointer]:
+                - /url: https://www.euronews.com/commercial
+            - listitem [ref=e605]:
+              - link "Terms and Conditions" [ref=e606] [cursor=pointer]:
+                - /url: /terms-and-conditions
+            - listitem [ref=e607]:
+              - link "Cookie Policy" [ref=e608] [cursor=pointer]:
+                - /url: /cookie-policy
+            - listitem [ref=e609]:
+              - link "Privacy Policy" [ref=e610] [cursor=pointer]:
+                - /url: /terms-and-conditions/#privacypolicy
+            - listitem [ref=e611]:
+              - link "Transparency" [ref=e612] [cursor=pointer]:
+                - /url: /transparency
+            - listitem [ref=e613]:
+              - link "Contact" [ref=e614] [cursor=pointer]:
+                - /url: /contact
+            - listitem [ref=e615]:
+              - link "Work at Euronews" [ref=e616] [cursor=pointer]:
+                - /url: /jobs
+            - listitem [ref=e617]:
+              - link "Our journalists" [ref=e618] [cursor=pointer]:
+                - /url: /profiles
+            - listitem [ref=e619]:
+              - 'link "Accessibility: non-compliant" [ref=e620] [cursor=pointer]':
+                - /url: /accessibility-statement
+            - listitem [ref=e621]:
+              - link "Modify my cookies choices" [ref=e622] [cursor=pointer]:
+                - /url: javascript:Didomi.preferences.show()
+        - generic [ref=e624]:
+          - link "Go to Follow us page" [ref=e626] [cursor=pointer]:
+            - /url: /follow-us
+            - text: Follow us
+          - list [ref=e627]:
+            - listitem [ref=e628]:
+              - link "Facebook" [ref=e629] [cursor=pointer]:
+                - /url: https://www.facebook.com/euronews
+                - img "Facebook" [ref=e630]
+            - listitem [ref=e631]:
+              - link "Twitter" [ref=e632] [cursor=pointer]:
+                - /url: https://twitter.com/euronews
+                - img "Twitter" [ref=e633]
+            - listitem [ref=e634]:
+              - link "Flipboard" [ref=e635] [cursor=pointer]:
+                - /url: https://flipboard.com/@euronews
+                - img "Flipboard" [ref=e636]
+            - listitem [ref=e637]:
+              - link "Youtube" [ref=e638] [cursor=pointer]:
+                - /url: https://www.youtube.com/euronews
+                - img "Youtube" [ref=e639]
+            - listitem [ref=e640]:
+              - link "Linkedin" [ref=e641] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/euronews
+                - img "Linkedin" [ref=e642]
+            - listitem [ref=e643]:
+              - link "Dailymotion" [ref=e644] [cursor=pointer]:
+                - /url: https://www.dailymotion.com/euronews-en
+                - img "Dailymotion" [ref=e645]
+            - listitem [ref=e646]:
+              - link "Instagram" [ref=e647] [cursor=pointer]:
+                - /url: https://www.instagram.com/euronews.tv/
+                - img "Instagram" [ref=e648]
+            - listitem [ref=e649]:
+              - link "VK" [ref=e650] [cursor=pointer]:
+                - /url: https://vk.com/en.euronews
+                - img "VK" [ref=e651]
+          - link "Go to Newsletters page" [ref=e653] [cursor=pointer]:
+            - /url: /newsletters
+            - text: Newsletters
+      - generic [ref=e655]: Copyright © euronews 2026

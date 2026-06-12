@@ -1,0 +1,162 @@
+name: Daily Crypto News
+
+on:
+  schedule:
+    # 7:00 AM CT (CDT) = 12:00 UTC
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+    inputs:
+      count:
+        description: Number of clips to generate (default 7)
+        default: '7'
+        required: false
+      topic:
+        description: Optional topic override (leave blank for auto)
+        default: ''
+        required: false
+      manifest:
+        description: JSON array of pre-selected stories from the cloud curator (leave blank for auto-discovery)
+        default: ''
+        required: false
+      skip_buffer:
+        description: Set to "true" to skip Buffer scheduling (test/diagnostic runs)
+        default: 'false'
+        required: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ── System deps + yt-dlp binary + Deno ───────────────────────────────
+      - name: Install ffmpeg, yt-dlp binary, and Deno
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y ffmpeg libsndfile1 fonts-liberation unzip
+          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+            -o /usr/local/bin/yt-dlp
+          sudo chmod +x /usr/local/bin/yt-dlp
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "$HOME/.deno/bin" >> $GITHUB_PATH
+
+      # ── Python ────────────────────────────────────────────────────────────
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install bgutil-ytdlp-pot-provider
+          git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git \
+            ~/bgutil-ytdlp-pot-provider
+
+      - name: Start bgutil PO token HTTP server
+        run: |
+          cd ~/bgutil-ytdlp-pot-provider/server
+          deno install
+          deno cache src/main.ts src/generate_once.ts
+          nohup deno run --allow-all src/main.ts > /tmp/bgutil-server.log 2>&1 &
+          echo "bgutil server PID: $!"
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:4416/ping > /dev/null 2>&1; then
+              echo "bgutil server ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -s "http://localhost:4416/get_po_token?videoId=dQw4w9WgXcQ" || echo "token fetch attempted"
+
+      # ── Persist SQLite DB between runs (dedup memory) ────────────────────
+      - name: Restore dedup database
+        uses: actions/cache@v4
+        with:
+          path: data/news_shorts.db
+          key: dedup-db-${{ github.run_number }}
+          restore-keys: dedup-db-
+
+      - name: Ensure data dir exists
+        run: mkdir -p data output
+
+      # ── yt-dlp cookies (authenticated YouTube session) ────────────────────
+      - name: Write yt-dlp cookies
+        env:
+          YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
+        run: |
+          mkdir -p ~/.config/yt-dlp
+          if [ -n "$YTDLP_COOKIES" ]; then
+            echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
+            echo "Cookies written ($(wc -l < ~/.config/yt-dlp/cookies.txt) lines)."
+          fi
+
+      # ── yt-dlp config (sleep flags + cookies path) ─────────────────────────
+      - name: Write yt-dlp config
+        run: |
+          python3 - << 'PYEOF'
+          from pathlib import Path
+          config_dir = Path.home() / ".config/yt-dlp"
+          config_dir.mkdir(parents=True, exist_ok=True)
+          cookies = config_dir / "cookies.txt"
+          lines = [
+              "--no-check-certificate",
+              "--sleep-requests 2",
+              "--sleep-interval 3",
+              "--max-sleep-interval 8",
+              "--retries 5",
+              "--retry-sleep 15",
+              "--remote-components ejs:github",
+          ]
+          if cookies.exists():
+              lines.append(f"--cookies {cookies}")
+          (config_dir / "config").write_text("\n".join(lines) + "\n")
+          print("yt-dlp config written.")
+          PYEOF
+
+      # ── Run pipeline ──────────────────────────────────────────────────────
+      - name: Generate clips and schedule to Buffer
+        env:
+          OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
+          NEWSDATA_API_KEY:         ${{ secrets.NEWSDATA_API_KEY }}
+          BUFFER_API_KEY:           ${{ secrets.BUFFER_API_KEY }}
+          BUFFER_PROFILE_NAME:      NeuralDropBits
+          BUFFER_CHANNEL_IDS:       ${{ secrets.BUFFER_CHANNEL_IDS }}
+          DISCORD_WEBHOOK_URL:      ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN:             ${{ secrets.STORAGE_TOKEN }}
+          GITHUB_STORAGE_REPO:      panavm12-jpg/storage
+          GITHUB_STORAGE_BRANCH:    main
+          GITHUB_STORAGE_PREFIX:    news
+          YOUTUBE_COOKIES_FILE:     /home/runner/.config/yt-dlp/cookies.txt
+          YOUTUBE_API_KEY:          ${{ secrets.YOUTUBE_API_KEY }}
+          ZERNIO_API_KEY:           ${{ secrets.ZERNIO_API_KEY }}
+          PIXABAY_API_KEY:          ${{ secrets.PIXABAY_API_KEY }}
+          ELEVENLABS_API_KEY:       ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          COUNT=${{ github.event.inputs.count || '7' }}
+          TOPIC="${{ github.event.inputs.topic }}"
+          MANIFEST='${{ github.event.inputs.manifest }}'
+          EXTRA=""
+          if [ "${{ github.event.inputs.skip_buffer }}" = "true" ]; then
+            EXTRA="--skip-buffer"
+          fi
+          if [ -n "$MANIFEST" ]; then
+            python run_daily.py --count "$COUNT" --manifest "$MANIFEST" $EXTRA
+          elif [ -n "$TOPIC" ]; then
+            python run_daily.py --count "$COUNT" --topic "$TOPIC" $EXTRA
+          else
+            python run_daily.py --count "$COUNT" $EXTRA
+          fi
+
+      # ── Upload run artifacts (for debugging) ─────────────────────────────
+      - name: Upload output artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: news-output-${{ github.run_number }}
+          path: output/
+          retention-days: 7

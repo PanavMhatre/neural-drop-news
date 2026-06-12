@@ -1,0 +1,49 @@
+[Script Info]
+Title: TechPulse Shorts Captions
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Inter,56,&H00FFFFFF,&H00FFC800,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,0,2,40,40,200,1
+Style: Highlight,Inter,56,&H00FFC800,&H00FFC800,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,0,2,40,40,200,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:01.55,Default,,0,0,0,,{\c&H00FFC800\b1}Nvidia{\c&H00FFFFFF\b0} just dropped a
+Dialogue: 0,0:00:01.55,0:00:02.99,Default,,0,0,0,,chip that could change
+Dialogue: 0,0:00:02.99,0:00:04.09,Default,,0,0,0,,who wins the {\c&H00FFC800\b1}AI{\c&H00FFFFFF\b0}
+Dialogue: 0,0:00:04.09,0:00:04.47,Default,,0,0,0,,race.
+Dialogue: 0,0:00:04.47,0:00:05.38,Default,,0,0,0,,At GTC {\c&H00FFC800\b1}2026,{\c&H00FFFFFF\b0}
+Dialogue: 0,0:00:05.38,0:00:07.24,Default,,0,0,0,,{\c&H00FFC800\b1}Nvidia{\c&H00FFFFFF\b0} announced the {\c&H00FFC800\b1}Blackwell{\c&H00FFFFFF\b0}
+Dialogue: 0,0:00:07.24,0:00:08.57,Default,,0,0,0,,Ultra B300 — their
+Dialogue: 0,0:00:08.57,0:00:10.24,Default,,0,0,0,,fastest {\c&H00FFC800\b1}AI{\c&H00FFFFFF\b0} training chip
+Dialogue: 0,0:00:10.24,0:00:10.62,Default,,0,0,0,,ever.
+Dialogue: 0,0:00:10.62,0:00:11.98,Default,,0,0,0,,It delivers {\c&H00FFC800\b1}2x{\c&H00FFFFFF\b0} the
+Dialogue: 0,0:00:11.98,0:00:13.65,Default,,0,0,0,,performance of the previous
+Dialogue: 0,0:00:13.65,0:00:14.22,Default,,0,0,0,,generation,
+Dialogue: 0,0:00:14.22,0:00:15.63,Default,,0,0,0,,and every major cloud
+Dialogue: 0,0:00:15.63,0:00:17.56,Default,,0,0,0,,provider is already onboard.
+Dialogue: 0,0:00:17.56,0:00:19.38,Default,,0,0,0,,This matters because faster
+Dialogue: 0,0:00:19.38,0:00:20.78,Default,,0,0,0,,chips mean faster {\c&H00FFC800\b1}AI{\c&H00FFFFFF\b0}
+Dialogue: 0,0:00:20.78,0:00:21.35,Default,,0,0,0,,development.
+Dialogue: 0,0:00:21.35,0:00:22.95,Default,,0,0,0,,Companies that get access
+Dialogue: 0,0:00:22.95,0:00:24.50,Default,,0,0,0,,first will ship products
+Dialogue: 0,0:00:24.50,0:00:26.17,Default,,0,0,0,,months ahead of competitors.
+Dialogue: 0,0:00:26.17,0:00:27.42,Default,,0,0,0,,If you're a CS
+Dialogue: 0,0:00:27.42,0:00:27.99,Default,,0,0,0,,student,
+Dialogue: 0,0:00:27.99,0:00:29.40,Default,,0,0,0,,this is the hardware
+Dialogue: 0,0:00:29.40,0:00:31.03,Default,,0,0,0,,your future employer will
+Dialogue: 0,0:00:31.03,0:00:32.13,Default,,0,0,0,,be building on.
+Dialogue: 0,0:00:32.13,0:00:33.80,Default,,0,0,0,,Understanding {\c&H00FFC800\b1}GPU{\c&H00FFFFFF\b0} architecture is
+Dialogue: 0,0:00:33.80,0:00:35.39,Default,,0,0,0,,becoming a real career
+Dialogue: 0,0:00:35.39,0:00:35.96,Default,,0,0,0,,advantage.
+Dialogue: 0,0:00:35.96,0:00:37.06,Default,,0,0,0,,The {\c&H00FFC800\b1}AI{\c&H00FFFFFF\b0} chip war
+Dialogue: 0,0:00:37.06,0:00:38.16,Default,,0,0,0,,just got a lot
+Dialogue: 0,0:00:38.16,0:00:39.03,Default,,0,0,0,,more interesting.
+Dialogue: 0,0:00:39.03,0:00:40.85,Default,,0,0,0,,{\c&H00FFC800\b1}Nvidia{\c&H00FFFFFF\b0} is betting everything
+Dialogue: 0,0:00:40.85,0:00:42.14,Default,,0,0,0,,on being the picks
+Dialogue: 0,0:00:42.14,0:00:43.47,Default,,0,0,0,,and shovels of the
+Dialogue: 0,0:00:43.47,0:00:44.42,Default,,0,0,0,,{\c&H00FFC800\b1}AI{\c&H00FFFFFF\b0} gold rush.

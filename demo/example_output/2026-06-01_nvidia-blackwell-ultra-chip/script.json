@@ -1,0 +1,81 @@
+{
+  "sections": {
+    "hook": "Nvidia just dropped a chip that could change who wins the AI race.",
+    "main_explanation": "At GTC 2026, Nvidia announced the Blackwell Ultra B300 \u2014 their fastest AI training chip ever. It delivers 2x the performance of the previous generation, and every major cloud provider is already onboard.",
+    "why_it_matters": "This matters because faster chips mean faster AI development. Companies that get access first will ship products months ahead of competitors.",
+    "student_dev_angle": "If you're a CS student, this is the hardware your future employer will be building on. Understanding GPU architecture is becoming a real career advantage.",
+    "closing_line": "The AI chip war just got a lot more interesting. Nvidia is betting everything on being the picks and shovels of the AI gold rush."
+  },
+  "full_script": "Nvidia just dropped a chip that could change who wins the AI race. At GTC 2026, Nvidia announced the Blackwell Ultra B300 \u2014 their fastest AI training chip ever. It delivers 2x the performance of the previous generation, and every major cloud provider is already onboard. This matters because faster chips mean faster AI development. Companies that get access first will ship products months ahead of competitors. If you're a CS student, this is the hardware your future employer will be building on. Understanding GPU architecture is becoming a real career advantage. The AI chip war just got a lot more interesting. Nvidia is betting everything on being the picks and shovels of the AI gold rush.",
+  "word_count": 108,
+  "estimated_duration_seconds": 38.0,
+  "structure_type": "company_move",
+  "visual_plan": [
+    {
+      "section": "hook",
+      "description": "Bold text: 'THE AI CHIP WAR'",
+      "text_overlay": "THE AI CHIP WAR",
+      "duration_hint": null
+    },
+    {
+      "section": "explanation",
+      "description": "Nvidia logo + chip specs",
+      "text_overlay": "Blackwell Ultra B300: 2x Performance",
+      "duration_hint": null
+    },
+    {
+      "section": "why_it_matters",
+      "description": "Timeline of AI chip releases",
+      "text_overlay": "Faster Chips \u2192 Faster AI",
+      "duration_hint": null
+    },
+    {
+      "section": "closing",
+      "description": "Career takeaway",
+      "text_overlay": "GPU knowledge = career advantage",
+      "duration_hint": null
+    }
+  ],
+  "caption_lines": [
+    "Nvidia just dropped a chip",
+    "that could change",
+    "who wins the AI race.",
+    "At GTC 2026,",
+    "Nvidia announced the",
+    "Blackwell Ultra B300.",
+    "Their fastest AI chip ever.",
+    "2x the performance.",
+    "Every major cloud provider",
+    "is already onboard.",
+    "This matters because",
+    "faster chips mean",
+    "faster AI development.",
+    "If you're a CS student,",
+    "GPU architecture is becoming",
+    "a real career advantage.",
+    "The AI chip war",
+    "just got more interesting."
+  ],
+  "title_ideas": [
+    "Nvidia Just Changed the AI Chip Game",
+    "This Chip Could Decide Who Wins the AI Race",
+    "Why CS Students Need to Watch Nvidia Right Now",
+    "Blackwell Ultra: What It Means for AI Development"
+  ],
+  "description": "Nvidia announced the Blackwell Ultra B300 at GTC 2026 \u2014 a 2x performance leap for AI training. Here's why it matters for students and developers.",
+  "hashtags": [
+    "#Nvidia",
+    "#AIChips",
+    "#BlackwellUltra",
+    "#GTC2026",
+    "#AINews",
+    "#TechShorts",
+    "#ComputerScience",
+    "#GPU"
+  ],
+  "source_list": [
+    "TechCrunch",
+    "https://example.com/nvidia-blackwell-ultra"
+  ],
+  "commentary_notes": "Added career angle for CS students, contextualized the chip within the broader AI race narrative, explained business implications."
+}
