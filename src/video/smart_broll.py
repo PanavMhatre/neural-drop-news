@@ -79,6 +79,13 @@ class SmartBRollAgent:
         self.client = openai_client
         self.pexels_api_key = os.getenv("PEXELS_API_KEY", "RnbckPtXv2kk3u4CaTIA0jv1T0IxZRT0MTxbd4LDUAw4qUid3KxOtwOY")
         self.pixabay_api_key = os.getenv("PIXABAY_API_KEY", "")
+        # Round-robin across Coverr keys
+        self._coverr_keys = [k for k in [
+            os.getenv("COVERR_API_KEY_1", ""),
+            os.getenv("COVERR_API_KEY_2", ""),
+            os.getenv("COVERR_API_KEY_3", ""),
+        ] if k]
+        self._coverr_idx = 0
         self.youtube_api_key = os.getenv("YOUTUBE_API_KEY", "")
 
         # Cookie file: env override or standard yt-dlp location written by workflow
@@ -145,52 +152,72 @@ class SmartBRollAgent:
         else:
             logger.info("YouTube failed or unavailable — falling back to Pexels")
 
-        # ── Step 2: Multi-source stock footage — rotate across all free sources ──
+        # ── Step 2: All sources in parallel per section — pick best result ──────
         if not youtube_succeeded:
-            # Source rotation order per section index: Pexels, Pixabay, Coverr, Archive
-            SOURCES = ["pexels", "pixabay", "coverr", "archive"]
-            logger.info(f"Fetching b-roll for {len(script.visual_plan)} sections (4-source rotation, parallel)...")
-            from concurrent.futures import ThreadPoolExecutor, as_completed
+            logger.info(f"Fetching b-roll for {len(script.visual_plan)} sections (all sources parallel)...")
+            from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
 
             def _fetch_section(args):
                 i, cue = args
                 section = cue.section
                 safe = self._safe_section_name(section)
-                out_path = self.output_dir / f"{safe}_broll.mp4"
-                if out_path.exists() and out_path.stat().st_size > 10_000:
-                    logger.info(f"B-roll cache hit for '{section}'")
-                    return section, str(out_path)
-
                 desc = cue.description or ""
-                # Rotate primary source per section so every section looks different
-                primary = SOURCES[i % len(SOURCES)]
-                fetch_order = [primary] + [s for s in SOURCES if s != primary]
 
-                for source in fetch_order:
-                    ppath = None
-                    if source == "pexels":
-                        ppath = self._fetch_pexels_video_for_section(story.title, section, i, desc, out_path)
-                    elif source == "pixabay" and self.pixabay_api_key:
-                        ppath = self._fetch_pixabay_video(story.title, section, i, desc, out_path)
-                    elif source == "coverr":
-                        ppath = self._fetch_coverr_video(story.title, section, i, desc, out_path)
-                    elif source == "archive":
-                        ppath = self._fetch_archive_video(story.title, section, i, desc, out_path)
-                    if ppath:
-                        return section, ppath
+                if (self.output_dir / f"{safe}_broll.mp4").exists() and \
+                   (self.output_dir / f"{safe}_broll.mp4").stat().st_size > 10_000:
+                    logger.info(f"B-roll cache hit for '{section}'")
+                    return section, str(self.output_dir / f"{safe}_broll.mp4")
 
-                logger.warning(f"All sources failed for section '{section}'")
-                return section, None
+                # Fetch from ALL sources simultaneously
+                candidates: list[tuple[str, str, int]] = []  # (source, path, score)
+
+                with ThreadPoolExecutor(max_workers=3) as inner:
+                    f_pexels = inner.submit(
+                        self._fetch_pexels_video_for_section,
+                        story.title, section, i, desc,
+                        self.output_dir / f"{safe}_pexels.mp4"
+                    )
+                    f_pixabay = inner.submit(
+                        self._fetch_pixabay_video,
+                        story.title, section, i, desc,
+                        self.output_dir / f"{safe}_pixabay.mp4"
+                    ) if self.pixabay_api_key else None
+                    f_coverr = inner.submit(
+                        self._fetch_coverr_video,
+                        story.title, section, i, desc,
+                        self.output_dir / f"{safe}_coverr.mp4"
+                    ) if self._coverr_keys else None
+
+                    for label, fut in [("pexels", f_pexels), ("pixabay", f_pixabay), ("coverr", f_coverr)]:
+                        if fut is None:
+                            continue
+                        try:
+                            path = fut.result()
+                            if path and Path(path).exists():
+                                size = Path(path).stat().st_size
+                                candidates.append((label, path, size))
+                                logger.info(f"  [{label}] {section}: {size//1024}KB")
+                        except Exception as e:
+                            logger.warning(f"  [{label}] {section} failed: {e}")
+
+                if not candidates:
+                    logger.warning(f"All sources failed for '{section}'")
+                    return section, None
+
+                # Pick the largest file as proxy for best quality/resolution
+                best_label, best_path, best_size = max(candidates, key=lambda x: x[2])
+                logger.info(f"  ✓ Best for '{section}': {best_label} ({best_size//1024}KB)")
+                return section, best_path
 
             with ThreadPoolExecutor(max_workers=len(script.visual_plan)) as pool:
                 futures = {pool.submit(_fetch_section, (i, cue)): cue
                            for i, cue in enumerate(script.visual_plan)}
-                for fut in as_completed(futures):
+                for fut in _as_completed(futures):
                     section, ppath = fut.result()
                     if ppath:
                         media_paths[section] = ppath
                     else:
-                        logger.warning(f"All sources exhausted for section '{section}'")
+                        logger.warning(f"No b-roll found for section '{section}'")
 
         # Any section still missing: motion graphics last resort
         for i, cue in enumerate(script.visual_plan):
@@ -493,9 +520,18 @@ class SmartBRollAgent:
         logger.error(f"Pixabay exhausted all terms for section '{section}'")
         return None
 
+    def _next_coverr_key(self) -> str:
+        if not self._coverr_keys:
+            return ""
+        key = self._coverr_keys[self._coverr_idx % len(self._coverr_keys)]
+        self._coverr_idx += 1
+        return key
+
     def _fetch_coverr_video(self, story_title: str, section: str, index: int,
                              cue_description: str = "", out_path=None) -> Optional[str]:
-        """Fetch from Coverr.co — free, no API key required."""
+        """Fetch from Coverr.co using API key."""
+        if not self._coverr_keys:
+            return None
         safe = self._safe_section_name(section)
         if out_path is None:
             out_path = self.output_dir / f"{safe}_broll.mp4"
@@ -505,12 +541,13 @@ class SmartBRollAgent:
         cue_term = " ".join(cue_description.split()[:3]) if cue_description else ""
         search_terms = ([cue_term] if cue_term else []) + section_themes + [story_term] + self.FALLBACK_PIXABAY_TERMS
 
+        api_key = self._next_coverr_key()
         for term in search_terms:
             try:
                 resp = requests.get(
                     "https://coverr.co/api/videos",
                     params={"page": 1, "q": term},
-                    headers={"User-Agent": "Mozilla/5.0"},
+                    headers={"User-Agent": "Mozilla/5.0", "Authorization": f"Bearer {api_key}"},
                     timeout=15,
                 )
                 if resp.status_code != 200:
@@ -520,19 +557,18 @@ class SmartBRollAgent:
                 if not hits:
                     continue
                 hit = hits[index % len(hits)]
-                # Coverr response format varies — try common fields
-                url = (hit.get("url") or hit.get("mp4") or
-                       hit.get("sources", [{}])[0].get("src") if hit.get("sources") else None)
+                sources = hit.get("sources") or []
+                url = (sources[0].get("src") if sources else None) or hit.get("url") or hit.get("mp4")
                 if not url:
                     continue
-                logger.info(f"Coverr [{section}] downloading: {url[:60]}")
+                logger.info(f"Coverr [{section}] downloading ({term}): {url[:80]}")
                 dl = requests.get(url, timeout=60, stream=True, headers={"User-Agent": "Mozilla/5.0"})
                 dl.raise_for_status()
                 with open(out_path, "wb") as f:
                     for chunk in dl.iter_content(chunk_size=1 << 16):
                         f.write(chunk)
                 if Path(out_path).stat().st_size > 10_000:
-                    logger.info(f"Coverr [{section}] saved ({term}): {out_path}")
+                    logger.info(f"Coverr [{section}] saved: {out_path}")
                     return str(out_path)
             except Exception as e:
                 logger.warning(f"Coverr failed for '{term}': {e}")

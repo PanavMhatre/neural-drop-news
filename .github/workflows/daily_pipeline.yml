@@ -81,6 +81,9 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          COVERR_API_KEY_1: ${{ secrets.COVERR_API_KEY_1 }}
+          COVERR_API_KEY_2: ${{ secrets.COVERR_API_KEY_2 }}
+          COVERR_API_KEY_3: ${{ secrets.COVERR_API_KEY_3 }}
           NVIDIA_API_KEY_1: ${{ secrets.NVIDIA_API_KEY_1 }}
           NVIDIA_API_KEY_2: ${{ secrets.NVIDIA_API_KEY_2 }}
           NVIDIA_API_KEY_3: ${{ secrets.NVIDIA_API_KEY_3 }}
