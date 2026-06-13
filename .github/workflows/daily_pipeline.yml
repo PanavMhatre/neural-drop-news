@@ -61,6 +61,15 @@ jobs:
           wget -q "https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf" \
             -O assets/fonts/Anton/Anton-Regular.ttf
 
+      # ── YouTube cookies ─────────────────────────────────────────────────────
+      - name: Install YouTube cookies
+        env:
+          YOUTUBE_COOKIES_B64: ${{ secrets.YOUTUBE_COOKIES_B64 }}
+        run: |
+          mkdir -p ~/.config/yt-dlp
+          echo "$YOUTUBE_COOKIES_B64" | base64 -d > ~/.config/yt-dlp/cookies.txt
+          echo "Cookies written: $(wc -l < ~/.config/yt-dlp/cookies.txt) lines"
+
       # ── Run pipeline ────────────────────────────────────────────────────────
       - name: Run Neural Drop pipeline
         env:
