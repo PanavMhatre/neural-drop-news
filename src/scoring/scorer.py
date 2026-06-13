@@ -55,21 +55,35 @@ Detected tone should be one of: startup_funding, developer_tools, ai_safety, pro
 Map crypto stories to the closest matching category/tone (e.g. Bitcoin ETF → ai_regulation, exchange hack → ai_safety, DeFi protocol launch → product_launch, institutional adoption → startup_funding)."""
 
 
-def _build_nvidia_oss_clients() -> list:
-    """NVIDIA gpt-oss-20b pool — used for parallel scoring (NVIDIA_OSS_KEY_1..10)."""
+def _build_scoring_pool() -> tuple[list, str]:
+    """Build scoring client pool + model: NVIDIA OSS → NVIDIA main → Groq. Returns (clients, model)."""
     import os
     keys = []
+    # NVIDIA OSS pool (dedicated scoring keys)
     for i in range(1, 11):
         k = os.getenv(f"NVIDIA_OSS_KEY_{i}", "")
         if k and k not in keys:
             keys.append(k)
-    # Fallback: use main NVIDIA keys if OSS pool not set
-    if not keys:
-        for i in range(1, 6):
-            k = os.getenv(f"NVIDIA_API_KEY_{i}", "")
-            if k and k not in keys:
-                keys.append(k)
-    return [OpenAI(api_key=k, base_url="https://integrate.api.nvidia.com/v1") for k in keys]
+    if keys:
+        return ([OpenAI(api_key=k, base_url="https://integrate.api.nvidia.com/v1") for k in keys],
+                "openai/gpt-oss-20b")
+    # Fallback: main NVIDIA keys
+    for i in range(1, 6):
+        k = os.getenv(f"NVIDIA_API_KEY_{i}", "")
+        if k and k not in keys:
+            keys.append(k)
+    if keys:
+        return ([OpenAI(api_key=k, base_url="https://integrate.api.nvidia.com/v1") for k in keys],
+                "openai/gpt-oss-20b")
+    # Fallback: Groq (round-robin across all keys)
+    for var in ("GROQ_API_KEY_1", "GROQ_API_KEY_2", "GROQ_API_KEY_3", "GROQ_API_KEY"):
+        k = os.getenv(var, "")
+        if k and k not in keys:
+            keys.append(k)
+    if keys:
+        return ([OpenAI(api_key=k, base_url="https://api.groq.com/openai/v1") for k in keys],
+                "openai/gpt-oss-120b")
+    return [], ""
 
 
 class StoryScorer:
@@ -81,11 +95,13 @@ class StoryScorer:
         self.min_score = config.get("minimum_score", 55)
         self.model = config.get("llm_model", "gpt-4o")
 
-        # NVIDIA gpt-oss-20b pool for parallel scoring
-        self._nvidia_clients = _build_nvidia_oss_clients()
+        # Scoring client pool (NVIDIA OSS → NVIDIA main → Groq)
+        self._nvidia_clients, self._scoring_model = _build_scoring_pool()
         self._nvidia_idx = 0
         if self._nvidia_clients:
-            logger.info(f"NVIDIA parallel scoring: {len(self._nvidia_clients)} key(s) — gpt-oss-20b")
+            logger.info(f"Parallel scoring: {len(self._nvidia_clients)} key(s) — {self._scoring_model}")
+        else:
+            logger.warning("No scoring API keys found (NVIDIA_OSS_KEY_*, NVIDIA_API_KEY_*, GROQ_API_KEY_*)")
 
         self._top_keywords: dict[str, float] = {}
         if analytics_insights:
@@ -93,12 +109,12 @@ class StoryScorer:
                 self._top_keywords[kw.lower()] = float(score)
 
     def _next_scoring_client(self):
-        """Round-robin across NVIDIA keys, fall back to main client."""
+        """Round-robin across scoring pool (NVIDIA or Groq). No fallback to placeholder client."""
         if self._nvidia_clients:
             client = self._nvidia_clients[self._nvidia_idx % len(self._nvidia_clients)]
             self._nvidia_idx += 1
-            return client, "openai/gpt-oss-20b"
-        return self.client, self.model
+            return client, self._scoring_model
+        raise RuntimeError("No scoring clients available — set NVIDIA_OSS_KEY_*, NVIDIA_API_KEY_*, or GROQ_API_KEY_*")
 
     def score_story(self, story: RawStory) -> ScoredStory:
         """
