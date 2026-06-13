@@ -131,7 +131,7 @@ class FrameCompositor:
         # On CI (GitHub Actions) render at 10fps to cut wall time by 3x.
         # Output is re-stamped to 30fps by FFmpeg so playback is smooth.
         import os
-        render_fps = 10 if os.getenv("CI") else self.fps
+        render_fps = 5 if os.getenv("CI") else self.fps
         total_frames = int(total_duration * render_fps)
         logger.info(
             f"Rendering {total_frames} frames ({total_duration:.1f}s) at {render_fps}fps"

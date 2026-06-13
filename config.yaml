@@ -60,7 +60,7 @@ scoring:
 # Script Generation
 # ---------------------------------------------------------------------------
 scripts:
-  llm_model: "gpt-oss-120b"  # Use "x-ai/grok-4.3" for Grok via Hack Club API
+  llm_model: "llama-3.3-70b-versatile"  # Groq model for script/quality/metadata
   target_word_count_min: 80
   target_word_count_max: 120
   target_duration_min: 25         # seconds

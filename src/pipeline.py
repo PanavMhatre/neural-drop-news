@@ -81,6 +81,21 @@ class Pipeline:
             
         self.openai_client = OpenAI(api_key=api_key, base_url=base_url)
 
+        # Build a Groq client for script/quality/metadata (no 429 stalls, 3 keys)
+        groq_key = (
+            os.getenv("GROQ_API_KEY_1")
+            or os.getenv("GROQ_API_KEY_2")
+            or os.getenv("GROQ_API_KEY_3")
+            or os.getenv("GROQ_API_KEY")
+        )
+        self._llm_client = (
+            OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
+            if groq_key
+            else self.openai_client
+        )
+        if groq_key:
+            logger.info("Using Groq for script/quality/metadata generation.")
+
         # Initialize components
         self.db = Database(db_path=self.config.get("db_path", "./data/news_shorts.db"))
         self.dedup = DedupEngine(self.db)
@@ -122,14 +137,14 @@ class Pipeline:
             **self.config.get("scripts", {}),
             "channel_name": self.config.get("channel", {}).get("name", "TechPulse Shorts"),
         }
-        self.script_generator = ScriptGenerator(self.openai_client, scripts_config)
+        self.script_generator = ScriptGenerator(self._llm_client, scripts_config)
 
         # Quality gate
         quality_config = {
             **self.config.get("quality", {}),
             **self.config.get("scripts", {}),
         }
-        self.quality_gate = QualityGate(self.openai_client, quality_config)
+        self.quality_gate = QualityGate(self._llm_client, quality_config)
 
         # Voice
         voice_config = self.config.get("voice", {})
@@ -148,7 +163,7 @@ class Pipeline:
         })
 
         # Metadata
-        self.metadata_generator = MetadataGenerator(self.openai_client, self.config.get("scripts", {}))
+        self.metadata_generator = MetadataGenerator(self._llm_client, self.config.get("scripts", {}))
 
         # Output
         self.output_folder = self.config.get("output", {}).get("folder", "./output")
