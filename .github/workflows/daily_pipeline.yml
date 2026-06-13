@@ -64,6 +64,24 @@ jobs:
           wget -q "https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf" \
             -O assets/fonts/Anton/Anton-Regular.ttf
 
+      # ── yt-dlp config + cookies ─────────────────────────────────────────────
+      - name: Configure yt-dlp
+        env:
+          YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
+        run: |
+          mkdir -p ~/.config/yt-dlp
+          echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
+          cat > ~/.config/yt-dlp/config << 'EOF'
+          --no-check-certificate
+          --sleep-requests 2
+          --sleep-interval 3
+          --max-sleep-interval 8
+          --retries 5
+          --retry-sleep 15
+          --cookies /home/runner/.config/yt-dlp/cookies.txt
+          EOF
+          echo "yt-dlp config written. Cookies: $(wc -l < ~/.config/yt-dlp/cookies.txt) lines"
+
       # ── Run pipeline ────────────────────────────────────────────────────────
       - name: Run Neural Drop pipeline
         env:
