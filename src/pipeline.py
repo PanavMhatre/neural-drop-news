@@ -146,9 +146,9 @@ class Pipeline:
             "generate_thumbnail": self.config.get("output", {}).get("generate_thumbnail", True),
         })
 
-        # Metadata: Groq gpt-oss-120b (fast, consistent)
-        meta_config = {**self.config.get("scripts", {}), "llm_model": self._groq_model or "openai/gpt-oss-120b"}
-        self.metadata_generator = MetadataGenerator(self._groq_client or self.openai_client, meta_config)
+        # Metadata: NVIDIA GLM-5.1 (saves Groq TPD for scoring + quality gate)
+        meta_config = {**self.config.get("scripts", {}), "llm_model": "z-ai/glm-5.1"}
+        self.metadata_generator = MetadataGenerator(self.client, meta_config)
 
         # Output
         self.output_folder = self.config.get("output", {}).get("folder", "./output")

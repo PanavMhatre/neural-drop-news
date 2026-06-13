@@ -112,6 +112,7 @@ class SmartBRollAgent:
             "-o", outtmpl,
             "--no-playlist",
             "--remote-components", "ejs:github",
+            "--socket-timeout", "15",
         ]
         if cookie_path.exists():
             logger.info(f"yt-dlp using cookies: {cookie_path} ({cookie_path.stat().st_size} bytes)")
