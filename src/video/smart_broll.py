@@ -17,8 +17,6 @@ logger = logging.getLogger(__name__)
 PEXELS_API_URL = "https://api.pexels.com/videos/search"
 YOUTUBE_SEARCH_API = "https://www.googleapis.com/youtube/v3/search"
 # Standard yt-dlp cookie location written by the workflow
-YTDLP_COOKIE_PATH = str(Path.home() / ".config/yt-dlp/cookies.txt")
-
 CRYPTO_PIXABAY_KEYWORDS = {
     "bitcoin": "bitcoin cryptocurrency",
     "ethereum": "ethereum blockchain",
@@ -88,10 +86,6 @@ class SmartBRollAgent:
         self._coverr_idx = 0
         self.youtube_api_key = os.getenv("YOUTUBE_API_KEY", "")
 
-        # Cookie file: env override or standard yt-dlp location written by workflow
-        cookie_env = os.getenv("YOUTUBE_COOKIES_FILE", "")
-        self.cookies_file = cookie_env if cookie_env else YTDLP_COOKIE_PATH
-
         self.model = "openai/gpt-oss-20b"
         # Use NVIDIA OSS pool if available, otherwise fall back to passed client
         oss_keys = [os.getenv(f"NVIDIA_OSS_KEY_{i}", "") for i in range(1, 11)]
@@ -105,7 +99,6 @@ class SmartBRollAgent:
 
     def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
         """Run yt-dlp via python -m so bgutil PO token plugin (site-packages) is loaded."""
-        cookie_path = Path.home() / ".config/yt-dlp/cookies.txt"
         cmd = [
             "python", "-m", "yt_dlp",
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
@@ -114,11 +107,8 @@ class SmartBRollAgent:
             "--remote-components", "ejs:github",
             "--socket-timeout", "15",
         ]
-        if cookie_path.exists():
-            logger.info(f"yt-dlp using cookies: {cookie_path} ({cookie_path.stat().st_size} bytes)")
-            cmd += ["--cookies", str(cookie_path)]
-        else:
-            logger.warning(f"No yt-dlp cookie file at {cookie_path}")
+        # Cookies are rejected by YouTube from CI/datacenter IPs — run cookieless.
+        # The ejs:github n-challenge solver handles bot detection without auth.
         if write_subs:
             cmd += ["--write-subs", "--write-auto-subs", "--sub-langs", "en", "--sub-format", "vtt"]
         cmd.append(url)
