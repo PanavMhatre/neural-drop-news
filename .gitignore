@@ -24,3 +24,4 @@ data/*.log
 *.mp4
 *.wav
 >>>>>>> c5110f6d4656f2ef15a4b6076aadb6de5ffb5935
+.gstack/

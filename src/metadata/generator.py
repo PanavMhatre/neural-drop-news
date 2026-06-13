@@ -105,20 +105,17 @@ Title ideas from script generation: {', '.join(script.title_ideas)}
 Generate optimized metadata for this video."""
 
         try:
-            completion = self.client.beta.chat.completions.parse(
-                model=self.model,
-                messages=[
+            from src.utils.llm import llm_parse
+            result = llm_parse(
+                self.client,
+                self.model,
+                [
                     {"role": "system", "content": METADATA_SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
                 ],
-                response_format=LLMMetadataOutput,
+                LLMMetadataOutput,
                 temperature=0.6,
             )
-
-            result = completion.choices[0].message.parsed
-            if result is None:
-                raise ValueError("LLM refused to generate metadata")
-
         except Exception as e:
             logger.error(f"Metadata generation failed: {e}")
             # Fallback to script-generated metadata

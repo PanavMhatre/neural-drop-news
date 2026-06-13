@@ -92,7 +92,7 @@ class StoryScorer:
         if self._groq_clients:
             client = self._groq_clients[self._groq_idx % len(self._groq_clients)]
             self._groq_idx += 1
-            return client, "llama-3.1-8b-instant"
+            return client, "openai/gpt-oss-120b"
         return self.client, self.model
 
     def score_story(self, story: RawStory) -> ScoredStory:

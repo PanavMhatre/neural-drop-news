@@ -65,36 +65,16 @@ class Pipeline:
         # Load config
         self.config = self._load_config(config_path)
 
-        # Initialize OpenAI client
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment. Copy .env.example to .env and set your key.")
-            
-        # Detect Hack Club proxy key or Cerebras key
-        base_url = None
-        if api_key.startswith("sk-hc-v1-"):
-            base_url = "https://ai.hackclub.com/proxy/v1"
-            logger.info("Detected Hack Club API key. Using proxy base_url.")
-        elif api_key.startswith("csk-"):
-            base_url = "https://api.cerebras.ai/v1"
-            logger.info("Detected Cerebras API key. Using Cerebras base_url.")
-            
-        self.openai_client = OpenAI(api_key=api_key, base_url=base_url)
+        # Groq client — fast, used for scoring / quality / metadata / b-roll (gpt-oss-120b)
+        self._groq_client, self._groq_model, self._groq_keys, self._groq_idx = \
+            self._build_groq_client()
 
-        # Build a Groq client for script/quality/metadata (no 429 stalls, 3 keys)
-        groq_key = (
-            os.getenv("GROQ_API_KEY_1")
-            or os.getenv("GROQ_API_KEY_2")
-            or os.getenv("GROQ_API_KEY_3")
-            or os.getenv("GROQ_API_KEY")
-        )
-        self._llm_client = (
-            OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
-            if groq_key
-            else self.openai_client
-        )
-        if groq_key:
-            logger.info("Using Groq for script/quality/metadata generation.")
+        # NVIDIA client — best quality, used for script writing (deepseek-v4-flash)
+        self._nvidia_client, self._nvidia_model, self._nvidia_keys, self._nvidia_idx = \
+            self._build_nvidia_client()
+
+        # openai_client kept as legacy ref (TTS engine, broll agent init)
+        self.openai_client = self._groq_client or OpenAI(api_key="placeholder")
 
         # Initialize components
         self.db = Database(db_path=self.config.get("db_path", "./data/news_shorts.db"))
@@ -130,21 +110,25 @@ class Pipeline:
             **self.config.get("scripts", {}),
             "freshness_hours": discovery_config.get("max_age_hours", 48),
         }
-        self.scorer = StoryScorer(self.openai_client, scoring_config, analytics_insights=analytics_insights)
+        # Scoring: Groq gpt-oss-120b (fast, analytical)
+        self.scorer = StoryScorer(self._groq_client or self.openai_client, scoring_config, analytics_insights=analytics_insights)
 
-        # Script generation
+        # Script generation: NVIDIA deepseek-v4-flash (best creative quality)
         scripts_config = {
             **self.config.get("scripts", {}),
             "channel_name": self.config.get("channel", {}).get("name", "TechPulse Shorts"),
+            "llm_model": self._nvidia_model or self._groq_model or "openai/gpt-oss-120b",
         }
-        self.script_generator = ScriptGenerator(self._llm_client, scripts_config)
+        self.script_generator = ScriptGenerator(
+            self._nvidia_client or self._groq_client or self.openai_client, scripts_config)
 
-        # Quality gate
+        # Quality gate: Groq gpt-oss-120b (analytical, fast)
         quality_config = {
             **self.config.get("quality", {}),
             **self.config.get("scripts", {}),
+            "llm_model": self._groq_model or "openai/gpt-oss-120b",
         }
-        self.quality_gate = QualityGate(self._llm_client, quality_config)
+        self.quality_gate = QualityGate(self._groq_client or self.openai_client, quality_config)
 
         # Voice
         voice_config = self.config.get("voice", {})
@@ -162,8 +146,9 @@ class Pipeline:
             "generate_thumbnail": self.config.get("output", {}).get("generate_thumbnail", True),
         })
 
-        # Metadata
-        self.metadata_generator = MetadataGenerator(self._llm_client, self.config.get("scripts", {}))
+        # Metadata: Groq gpt-oss-120b (fast, consistent)
+        meta_config = {**self.config.get("scripts", {}), "llm_model": self._groq_model or "openai/gpt-oss-120b"}
+        self.metadata_generator = MetadataGenerator(self._groq_client or self.openai_client, meta_config)
 
         # Output
         self.output_folder = self.config.get("output", {}).get("folder", "./output")
@@ -175,6 +160,35 @@ class Pipeline:
         self.distribution = self.config.get("distribution", {})
 
         logger.info("Pipeline initialized")
+
+    def _build_nvidia_client(self):
+        """NVIDIA NIM — deepseek-v4-flash for script writing (best creative quality)."""
+        keys = []
+        for var in ("NVIDIA_API_KEY_1", "NVIDIA_API_KEY_2", "NVIDIA_API_KEY_3",
+                    "NVIDIA_API_KEY_4", "NVIDIA_API_KEY_5", "NVIDIA_API_KEY"):
+            k = os.getenv(var, "")
+            if k and k not in keys:
+                keys.append(k)
+        if not keys:
+            return None, None, [], 0
+        client = OpenAI(api_key=keys[0], base_url="https://integrate.api.nvidia.com/v1")
+        model = "deepseek-ai/deepseek-v4-flash"
+        logger.info(f"NVIDIA NIM enabled: {len(keys)} key(s), model={model}")
+        return client, model, keys, 0
+
+    def _build_groq_client(self):
+        """Groq — gpt-oss-120b for scoring/quality/metadata/b-roll (fast, analytical)."""
+        keys = []
+        for var in ("GROQ_API_KEY_1", "GROQ_API_KEY_2", "GROQ_API_KEY_3", "GROQ_API_KEY"):
+            k = os.getenv(var, "")
+            if k and k not in keys:
+                keys.append(k)
+        if not keys:
+            return None, None, [], 0
+        client = OpenAI(api_key=keys[0], base_url="https://api.groq.com/openai/v1")
+        model = "openai/gpt-oss-120b"
+        logger.info(f"Groq enabled: {len(keys)} key(s), model={model}")
+        return client, model, keys, 0
 
     def _load_config(self, config_path: str) -> dict:
         """Load YAML configuration file."""

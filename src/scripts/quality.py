@@ -245,20 +245,17 @@ SCRIPT METADATA:
 
 Evaluate thoroughly against all quality criteria."""
 
-        completion = self.client.beta.chat.completions.parse(
-            model=self.model,
-            messages=[
+        from src.utils.llm import llm_parse
+        return llm_parse(
+            self.client,
+            self.model,
+            [
                 {"role": "system", "content": QUALITY_SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
-            response_format=LLMQualityCheck,
+            LLMQualityCheck,
             temperature=0.2,
         )
-
-        result = completion.choices[0].message.parsed
-        if result is None:
-            raise ValueError("LLM refused quality check")
-        return result
 
     def _process_llm_report(
         self, report: LLMQualityCheck

@@ -78,14 +78,7 @@ class SmartBRollAgent:
         cookie_env = os.getenv("YOUTUBE_COOKIES_FILE", "")
         self.cookies_file = cookie_env if cookie_env else YTDLP_COOKIE_PATH
 
-        import yaml
-        try:
-            with open("config.yaml") as f:
-                config = yaml.safe_load(f)
-            self.model = config.get("models", {}).get("cheap",
-                config.get("scripts", {}).get("llm_model", "gpt-oss-120b"))
-        except Exception:
-            self.model = "gpt-oss-120b"
+        self.model = "openai/gpt-oss-120b"
 
     def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
         """Run yt-dlp via python -m so bgutil PO token plugin (site-packages) is loaded."""
@@ -431,9 +424,11 @@ class SmartBRollAgent:
             return default_start, default_start + target_duration
         lines = [f"[{t['start']:.1f} - {t['end']:.1f}] {t['text']}" for t in transcript[:300]]
         try:
-            response = self.client.beta.chat.completions.parse(
-                model=self.model,
-                messages=[
+            from src.utils.llm import llm_parse
+            match = llm_parse(
+                self.client,
+                self.model,
+                [
                     {"role": "system", "content": "You are an AI video editor. Find the best video segment that matches the visual cue."},
                     {"role": "user", "content": (
                         f"Visual Cue: {cue.description}\nText Overlay: {cue.text_overlay}\n\n"
@@ -441,10 +436,9 @@ class SmartBRollAgent:
                         f"\n\nFind a ~{target_duration}s segment. Respond ONLY with JSON: {{\"start_time\": float, \"end_time\": float}}"
                     )},
                 ],
-                response_format=TimestampMatch,
+                TimestampMatch,
                 temperature=0.0,
             )
-            match = response.choices[0].message.parsed
             if match.end_time - match.start_time < 3.0:
                 match.end_time = match.start_time + target_duration
             return match.start_time, match.end_time

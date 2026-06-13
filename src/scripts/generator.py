@@ -10,6 +10,7 @@ from typing import Optional
 
 from openai import OpenAI
 
+from src.utils.llm import llm_parse
 from src.models.schemas import (
     GeneratedScript,
     LLMScriptOutput,
@@ -20,7 +21,20 @@ from src.models.schemas import (
 )
 from src.scripts.structures import ScriptStructure, get_structure
 
+import re
+
 logger = logging.getLogger(__name__)
+
+
+def _clean_script(text: str) -> str:
+    """Strip stage directions and markdown labels that some models add (e.g. **Visual:** ...)."""
+    # Remove **Label:** lines (DeepSeek-style stage directions)
+    text = re.sub(r'^\*\*[^*]+\*\*:.*$', '', text, flags=re.MULTILINE)
+    # Remove [bracketed directions]
+    text = re.sub(r'\[.*?\]', '', text)
+    # Collapse multiple blank lines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
 
 SCRIPT_SYSTEM_PROMPT = """You are a scriptwriter for a YouTube Shorts channel called "{channel_name}".
 Channel angle: Fast AI and tech news explained for students, developers, and people trying to understand where tech money/opportunity is moving.
@@ -132,23 +146,17 @@ Requirements:
 
 Generate the complete script with all required fields."""
 
-        # Call GPT-4o with Structured Outputs
         try:
-            completion = self.client.beta.chat.completions.parse(
-                model=self.model,
-                messages=[
+            result = llm_parse(
+                self.client,
+                self.model,
+                [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                response_format=LLMScriptOutput,
+                LLMScriptOutput,
                 temperature=self.temperature,
             )
-
-            result = completion.choices[0].message.parsed
-            if result is None:
-                refusal = completion.choices[0].message.refusal
-                raise ValueError(f"LLM refused to generate script: {refusal}")
-
         except Exception as e:
             logger.error(f"Script generation failed: {e}")
             raise
@@ -179,7 +187,7 @@ Generate the complete script with all required fields."""
 
         return GeneratedScript(
             sections=sections,
-            full_script=llm_output.full_script,
+            full_script=_clean_script(llm_output.full_script),
             word_count=llm_output.word_count,
             estimated_duration_seconds=llm_output.estimated_duration_seconds,
             structure_type=structure_type,
@@ -240,20 +248,16 @@ Rewrite the script to address ALL issues while keeping the same structure ({stru
 Make it better, more original, and more engaging."""
 
         try:
-            completion = self.client.beta.chat.completions.parse(
-                model=self.model,
-                messages=[
+            result = llm_parse(
+                self.client,
+                self.model,
+                [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                response_format=LLMScriptOutput,
-                temperature=self.temperature + 0.1,  # Slightly more creative on retry
+                LLMScriptOutput,
+                temperature=self.temperature + 0.1,
             )
-
-            result = completion.choices[0].message.parsed
-            if result is None:
-                raise ValueError("LLM refused to revise script")
-
         except Exception as e:
             logger.error(f"Script revision failed: {e}")
             raise
