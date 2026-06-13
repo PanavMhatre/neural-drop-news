@@ -40,13 +40,19 @@ CRYPTO_PIXABAY_KEYWORDS = {
 
 # Per-section visual variety — each script section gets a different visual theme
 SECTION_PIXABAY_THEMES = {
-    "hook":        ["city night lights", "technology futuristic", "finance trading floor"],
-    "context":     ["stock market data", "digital money", "cryptocurrency chart"],
-    "breakdown":   ["blockchain network", "computer data", "finance analytics"],
-    "implication": ["business strategy", "investment growth", "digital finance"],
-    "cta":         ["success achievement", "technology innovation", "cryptocurrency future"],
-    "intro":       ["technology futuristic", "city lights", "finance"],
-    "outro":       ["success growth", "digital world", "future technology"],
+    # Script section names
+    "hook":               ["city night lights", "technology futuristic", "trading floor"],
+    "main_explanation":   ["blockchain network", "computer data", "finance analytics"],
+    "why_it_matters":     ["business strategy", "investment growth", "stock market"],
+    "student_dev_angle":  ["coding computer", "developer laptop", "technology startup"],
+    "closing_line":       ["success achievement", "digital world", "cryptocurrency future"],
+    # Generic fallbacks
+    "context":            ["stock market data", "digital money", "cryptocurrency chart"],
+    "breakdown":          ["blockchain network", "computer data", "finance analytics"],
+    "implication":        ["business strategy", "investment growth", "digital finance"],
+    "cta":                ["success achievement", "technology innovation", "cryptocurrency future"],
+    "intro":              ["technology futuristic", "city lights", "finance"],
+    "outro":              ["success growth", "digital world", "future technology"],
 }
 
 
@@ -122,33 +128,44 @@ class SmartBRollAgent:
         from src.video import motion_graphics as mg
 
         media_paths: dict[str, str] = {}
-
-        # Fetch a UNIQUE Pexels video for EVERY section.
-        # Each section gets its own search term for visual variety.
-        logger.info(f"Fetching unique Pexels video for each of {len(script.visual_plan)} sections (parallel)...")
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
-        def _fetch_section(args):
-            i, cue = args
-            section = cue.section
-            out_path = self.output_dir / f"{section}_pexels.mp4"
-            if out_path.exists() and out_path.stat().st_size > 10_000:
-                logger.info(f"Pexels cache hit for '{section}'")
-                return section, str(out_path)
-            ppath = self._fetch_pexels_video_for_section(story.title, section, i)
-            return section, ppath
-
-        with ThreadPoolExecutor(max_workers=len(script.visual_plan)) as pool:
-            futures = {pool.submit(_fetch_section, (i, cue)): cue
-                       for i, cue in enumerate(script.visual_plan)}
-            for fut in as_completed(futures):
-                section, ppath = fut.result()
-                if ppath:
-                    media_paths[section] = ppath
-                else:
-                    logger.warning(f"Pexels failed for section '{section}', using motion graphic")
-
         youtube_succeeded = False
+
+        # ── Step 1: Try YouTube first (real news footage) ────────────────────
+        logger.info("Trying YouTube for b-roll...")
+        yt_video_path, _ = self._download_youtube(story.url, story.title)
+        if yt_video_path and Path(yt_video_path).exists() and Path(yt_video_path).stat().st_size > 50_000:
+            logger.info(f"YouTube b-roll acquired: {yt_video_path}")
+            youtube_succeeded = True
+            # Use the YouTube clip for every section (compositor trims to section duration)
+            for cue in script.visual_plan:
+                media_paths[cue.section] = yt_video_path
+        else:
+            logger.info("YouTube failed or unavailable — falling back to Pexels")
+
+        # ── Step 2: Pexels — one unique clip per section ─────────────────────
+        if not youtube_succeeded:
+            logger.info(f"Fetching unique Pexels video for each of {len(script.visual_plan)} sections (parallel)...")
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            def _fetch_section(args):
+                i, cue = args
+                section = cue.section
+                out_path = self.output_dir / f"{section}_pexels.mp4"
+                if out_path.exists() and out_path.stat().st_size > 10_000:
+                    logger.info(f"Pexels cache hit for '{section}'")
+                    return section, str(out_path)
+                ppath = self._fetch_pexels_video_for_section(story.title, section, i)
+                return section, ppath
+
+            with ThreadPoolExecutor(max_workers=len(script.visual_plan)) as pool:
+                futures = {pool.submit(_fetch_section, (i, cue)): cue
+                           for i, cue in enumerate(script.visual_plan)}
+                for fut in as_completed(futures):
+                    section, ppath = fut.result()
+                    if ppath:
+                        media_paths[section] = ppath
+                    else:
+                        logger.warning(f"Pexels failed for section '{section}', using motion graphic")
 
         # Any section still missing: motion graphics last resort
         for i, cue in enumerate(script.visual_plan):
@@ -187,9 +204,14 @@ class SmartBRollAgent:
 
         media_paths.update(forward_fill)
 
-        broll_source = "pexels" if any("pexels" in p for p in media_paths.values()) else "motion_graphics"
+        if youtube_succeeded:
+            broll_source = "youtube"
+        elif any("pexels" in p for p in media_paths.values()):
+            broll_source = "pexels"
+        else:
+            broll_source = "motion_graphics"
         logger.info(f"B-roll source: {broll_source} | sections covered: {list(media_paths.keys())}")
-        return media_paths, broll_source, None
+        return media_paths, broll_source, yt_audio_path
 
     def _extract_audio(self, video_path: str) -> Optional[str]:
         """Extract audio track from a video file to mp3."""
