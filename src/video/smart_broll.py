@@ -145,9 +145,11 @@ class SmartBRollAgent:
         else:
             logger.info("YouTube failed or unavailable — falling back to Pexels")
 
-        # ── Step 2: Pexels — one unique clip per section ─────────────────────
+        # ── Step 2: Multi-source stock footage — rotate across all free sources ──
         if not youtube_succeeded:
-            logger.info(f"Fetching unique Pexels video for each of {len(script.visual_plan)} sections (parallel)...")
+            # Source rotation order per section index: Pexels, Pixabay, Coverr, Archive
+            SOURCES = ["pexels", "pixabay", "coverr", "archive"]
+            logger.info(f"Fetching b-roll for {len(script.visual_plan)} sections (4-source rotation, parallel)...")
             from concurrent.futures import ThreadPoolExecutor, as_completed
 
             def _fetch_section(args):
@@ -158,18 +160,27 @@ class SmartBRollAgent:
                 if out_path.exists() and out_path.stat().st_size > 10_000:
                     logger.info(f"B-roll cache hit for '{section}'")
                     return section, str(out_path)
-                # Alternate sources per section index for variety
-                # Even sections → Pexels, odd sections → Pixabay (if available)
-                use_pixabay = (i % 2 == 1) and bool(self.pixabay_api_key)
-                if use_pixabay:
-                    ppath = self._fetch_pixabay_video(story.title, section, i, cue.description, out_path)
-                    if not ppath:
-                        ppath = self._fetch_pexels_video_for_section(story.title, section, i, cue.description, out_path)
-                else:
-                    ppath = self._fetch_pexels_video_for_section(story.title, section, i, cue.description, out_path)
-                    if not ppath and self.pixabay_api_key:
-                        ppath = self._fetch_pixabay_video(story.title, section, i, cue.description, out_path)
-                return section, ppath
+
+                desc = cue.description or ""
+                # Rotate primary source per section so every section looks different
+                primary = SOURCES[i % len(SOURCES)]
+                fetch_order = [primary] + [s for s in SOURCES if s != primary]
+
+                for source in fetch_order:
+                    ppath = None
+                    if source == "pexels":
+                        ppath = self._fetch_pexels_video_for_section(story.title, section, i, desc, out_path)
+                    elif source == "pixabay" and self.pixabay_api_key:
+                        ppath = self._fetch_pixabay_video(story.title, section, i, desc, out_path)
+                    elif source == "coverr":
+                        ppath = self._fetch_coverr_video(story.title, section, i, desc, out_path)
+                    elif source == "archive":
+                        ppath = self._fetch_archive_video(story.title, section, i, desc, out_path)
+                    if ppath:
+                        return section, ppath
+
+                logger.warning(f"All sources failed for section '{section}'")
+                return section, None
 
             with ThreadPoolExecutor(max_workers=len(script.visual_plan)) as pool:
                 futures = {pool.submit(_fetch_section, (i, cue)): cue
@@ -179,7 +190,7 @@ class SmartBRollAgent:
                     if ppath:
                         media_paths[section] = ppath
                     else:
-                        logger.warning(f"Pexels failed for section '{section}', using motion graphic")
+                        logger.warning(f"All sources exhausted for section '{section}'")
 
         # Any section still missing: motion graphics last resort
         for i, cue in enumerate(script.visual_plan):
@@ -480,6 +491,105 @@ class SmartBRollAgent:
                 logger.warning(f"Pixabay search failed for '{term}': {e}")
 
         logger.error(f"Pixabay exhausted all terms for section '{section}'")
+        return None
+
+    def _fetch_coverr_video(self, story_title: str, section: str, index: int,
+                             cue_description: str = "", out_path=None) -> Optional[str]:
+        """Fetch from Coverr.co — free, no API key required."""
+        safe = self._safe_section_name(section)
+        if out_path is None:
+            out_path = self.output_dir / f"{safe}_broll.mp4"
+
+        section_themes = SECTION_PIXABAY_THEMES.get(safe) or SECTION_PIXABAY_THEMES.get(section, [])
+        story_term = self._pixabay_terms(story_title)
+        cue_term = " ".join(cue_description.split()[:3]) if cue_description else ""
+        search_terms = ([cue_term] if cue_term else []) + section_themes + [story_term] + self.FALLBACK_PIXABAY_TERMS
+
+        for term in search_terms:
+            try:
+                resp = requests.get(
+                    "https://coverr.co/api/videos",
+                    params={"page": 1, "q": term},
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=15,
+                )
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+                hits = data.get("hits", data.get("data", data.get("videos", [])))
+                if not hits:
+                    continue
+                hit = hits[index % len(hits)]
+                # Coverr response format varies — try common fields
+                url = (hit.get("url") or hit.get("mp4") or
+                       hit.get("sources", [{}])[0].get("src") if hit.get("sources") else None)
+                if not url:
+                    continue
+                logger.info(f"Coverr [{section}] downloading: {url[:60]}")
+                dl = requests.get(url, timeout=60, stream=True, headers={"User-Agent": "Mozilla/5.0"})
+                dl.raise_for_status()
+                with open(out_path, "wb") as f:
+                    for chunk in dl.iter_content(chunk_size=1 << 16):
+                        f.write(chunk)
+                if Path(out_path).stat().st_size > 10_000:
+                    logger.info(f"Coverr [{section}] saved ({term}): {out_path}")
+                    return str(out_path)
+            except Exception as e:
+                logger.warning(f"Coverr failed for '{term}': {e}")
+        return None
+
+    def _fetch_archive_video(self, story_title: str, section: str, index: int,
+                              cue_description: str = "", out_path=None) -> Optional[str]:
+        """Fetch public domain video from Internet Archive."""
+        safe = self._safe_section_name(section)
+        if out_path is None:
+            out_path = self.output_dir / f"{safe}_broll.mp4"
+
+        story_term = self._pixabay_terms(story_title)
+        cue_term = " ".join(cue_description.split()[:3]) if cue_description else ""
+        search_terms = ([cue_term] if cue_term else []) + [story_term, "finance technology", "cryptocurrency", "digital economy"]
+
+        for term in search_terms:
+            try:
+                resp = requests.get(
+                    "https://archive.org/advancedsearch.php",
+                    params={
+                        "q": f"{term} AND mediatype:movies",
+                        "fl[]": ["identifier", "title"],
+                        "rows": 10,
+                        "output": "json",
+                        "page": 1,
+                    },
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                docs = resp.json().get("response", {}).get("docs", [])
+                if not docs:
+                    continue
+                doc = docs[index % len(docs)]
+                identifier = doc.get("identifier")
+                if not identifier:
+                    continue
+                # Get the actual file listing
+                meta = requests.get(f"https://archive.org/metadata/{identifier}", timeout=15)
+                meta.raise_for_status()
+                files = meta.json().get("files", [])
+                mp4s = [f for f in files if f.get("name", "").endswith(".mp4")]
+                if not mp4s:
+                    continue
+                mp4 = mp4s[0]
+                url = f"https://archive.org/download/{identifier}/{mp4['name']}"
+                logger.info(f"Archive [{section}] downloading: {identifier}/{mp4['name']}")
+                dl = requests.get(url, timeout=120, stream=True)
+                dl.raise_for_status()
+                with open(out_path, "wb") as f:
+                    for chunk in dl.iter_content(chunk_size=1 << 16):
+                        f.write(chunk)
+                if Path(out_path).stat().st_size > 10_000:
+                    logger.info(f"Archive [{section}] saved: {out_path}")
+                    return str(out_path)
+            except Exception as e:
+                logger.warning(f"Archive failed for '{term}': {e}")
         return None
 
     # ── Utilities ──────────────────────────────────────────────────────────────
