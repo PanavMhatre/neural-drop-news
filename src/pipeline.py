@@ -449,33 +449,37 @@ class Pipeline:
         output_dir = Path(self.output_folder) / package_id
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Step 4: Acquire b-roll first (determines if we need TTS or can use YouTube audio)
+        # Steps 4+5: B-roll and TTS run in parallel (both independent of each other)
         broll_source = "tts_only"
         yt_audio_path = None
         media_paths: dict[str, str] = {}
-
-        if self.render_video:
-            logger.info("Acquiring b-roll media...")
-            from src.video.smart_broll import SmartBRollAgent
-            broll_agent = SmartBRollAgent(str(output_dir), self.openai_client)
-            media_paths, broll_source, yt_audio_path = broll_agent.acquire_media(
-                script, scored_story.story, accent_color
-            )
-
-        # Step 5: Audio — use YouTube's original audio when it's the b-roll source,
-        # otherwise generate TTS (Pixabay / motion graphics have no relevant audio).
         audio_path = str(output_dir / "voiceover.mp3")
         voice_override = overrides.get("tts_voice") if overrides else None
 
-        # Always generate TTS — YouTube b-roll is used visually only (muted).
-        # Using YouTube's 2-min audio would blow out the Short's duration.
-        logger.info("Generating TTS voiceover...")
-        voice_config = self.tts_engine.generate_voiceover(
-            script_text=script.full_script,
-            output_path=audio_path,
-            tone=scored_story.detected_tone,
-            voice_override=voice_override,
-        )
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _acquire_broll():
+            if not self.render_video:
+                return {}, "tts_only", None
+            logger.info("Acquiring b-roll media...")
+            from src.video.smart_broll import SmartBRollAgent
+            agent = SmartBRollAgent(str(output_dir), self.openai_client)
+            return agent.acquire_media(script, scored_story.story, accent_color)
+
+        def _generate_tts():
+            logger.info("Generating TTS voiceover...")
+            return self.tts_engine.generate_voiceover(
+                script_text=script.full_script,
+                output_path=audio_path,
+                tone=scored_story.detected_tone,
+                voice_override=voice_override,
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            f_broll = pool.submit(_acquire_broll)
+            f_tts = pool.submit(_generate_tts)
+            media_paths, broll_source, yt_audio_path = f_broll.result()
+            voice_config = f_tts.result()
 
         # Step 6: Get audio duration
         audio_duration = self._get_audio_duration(audio_path)
@@ -499,7 +503,7 @@ class Pipeline:
             accent_color=accent_color,
         )
 
-        # Step 9: Generate metadata
+        # Step 9: Generate metadata (now uses voice_config from parallel TTS above)
         logger.info("Generating metadata...")
         metadata = self.metadata_generator.generate_metadata(
             script, scored_story, voice_config
