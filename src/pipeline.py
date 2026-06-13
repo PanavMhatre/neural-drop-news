@@ -128,7 +128,7 @@ class Pipeline:
             **self.config.get("scripts", {}),
             "llm_model": self._groq_model or "openai/gpt-oss-120b",
         }
-        self.quality_gate = QualityGate(self._groq_client or self.openai_client, quality_config)
+        self.quality_gate = QualityGate(self._nvidia_client or self._groq_client or self.openai_client, quality_config)
 
         # Voice
         voice_config = self.config.get("voice", {})
