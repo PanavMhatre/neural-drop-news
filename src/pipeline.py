@@ -162,10 +162,15 @@ class Pipeline:
         logger.info("Pipeline initialized")
 
     def _build_nvidia_client(self):
-        """NVIDIA NIM — deepseek-v4-flash for script writing (best creative quality)."""
+        """NVIDIA NIM — GLM-5.1 for script writing (fast ~6s, high quality)."""
         keys = []
-        for var in ("NVIDIA_API_KEY_1", "NVIDIA_API_KEY_2", "NVIDIA_API_KEY_3",
-                    "NVIDIA_API_KEY_4", "NVIDIA_API_KEY_5", "NVIDIA_API_KEY"):
+        # GLM dedicated keys first, then main NVIDIA keys
+        for prefix in ("NVIDIA_GLM_KEY", "NVIDIA_API_KEY"):
+            for i in range(1, 11):
+                k = os.getenv(f"{prefix}_{i}", "")
+                if k and k not in keys:
+                    keys.append(k)
+        for var in ("NVIDIA_API_KEY",):
             k = os.getenv(var, "")
             if k and k not in keys:
                 keys.append(k)
@@ -173,8 +178,8 @@ class Pipeline:
             return None, None, [], 0
         import httpx
         client = OpenAI(api_key=keys[0], base_url="https://integrate.api.nvidia.com/v1",
-                        http_client=httpx.Client(timeout=120.0))
-        model = "deepseek-ai/deepseek-v4-flash"
+                        http_client=httpx.Client(timeout=60.0))
+        model = "z-ai/glm-5.1"
         logger.info(f"NVIDIA NIM enabled: {len(keys)} key(s), model={model}")
         return client, model, keys, 0
 

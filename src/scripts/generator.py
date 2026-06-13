@@ -80,14 +80,7 @@ Visual plan should describe what text/graphics to show during each section."""
 
 
 def _build_glm_client() -> Optional[OpenAI]:
-    """Second script model: z-ai/glm-5.1 on NVIDIA (2.6s, excellent quality).
-    Uses dedicated NVIDIA_GLM_KEY_1..5, falls back to OSS or main NVIDIA keys."""
-    import os
-    for prefix in ("NVIDIA_GLM_KEY", "NVIDIA_OSS_KEY", "NVIDIA_API_KEY"):
-        for i in range(1, 11):
-            k = os.getenv(f"{prefix}_{i}", "")
-            if k:
-                return OpenAI(api_key=k, base_url="https://integrate.api.nvidia.com/v1")
+    """GLM-5.1 is now primary (passed as self.client). No second model needed."""
     return None
 
 
@@ -135,7 +128,7 @@ class ScriptGenerator:
         self.client = client
         self.config = config
         self.channel_name = config.get("channel_name", "TechPulse Shorts")
-        self.model = config.get("llm_model", "deepseek-ai/deepseek-v4-flash")
+        self.model = config.get("llm_model", "z-ai/glm-5.1")
         self.temperature = config.get("llm_temperature", 0.8)
         self.target_words = (
             config.get("target_word_count_min", 80),
