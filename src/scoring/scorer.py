@@ -231,41 +231,25 @@ Score this story and decide whether it should become a short video."""
 
         import json
         scoring_client, scoring_model = self._next_scoring_client()
-        is_groq = self._groq_clients and scoring_client in self._groq_clients
 
-        if is_groq:
-            # Groq doesn't support json_schema structured outputs — use json_object + manual parse
-            json_prompt = user_prompt + """
+        # All scoring providers (NVIDIA, Groq) use json_object mode — no beta.parse
+        json_prompt = user_prompt + """
 
 Respond ONLY with a JSON object with these exact fields:
 {"freshness": 0-100, "source_credibility": 0-100, "relevance": 0-100, "viral_potential": 0-100,
 "educational_value": 0-100, "business_angle": 0-100, "visual_potential": 0-100, "explainability": 0-100,
 "should_accept": true/false, "rejection_reasons": [], "detected_category": "string", "detected_tone": "string", "reasoning": "string"}"""
-            completion = scoring_client.chat.completions.create(
-                model=scoring_model,
-                messages=[
-                    {"role": "system", "content": SCORING_SYSTEM_PROMPT},
-                    {"role": "user", "content": json_prompt},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.3,
-            )
-            raw = completion.choices[0].message.content
-            return LLMStoryScore(**json.loads(raw))
-        else:
-            completion = scoring_client.beta.chat.completions.parse(
-                model=scoring_model,
-                messages=[
-                    {"role": "system", "content": SCORING_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format=LLMStoryScore,
-                temperature=0.3,
-            )
-            result = completion.choices[0].message.parsed
-            if result is None:
-                raise ValueError(f"LLM refused to score: {completion.choices[0].message.refusal}")
-            return result
+        completion = scoring_client.chat.completions.create(
+            model=scoring_model,
+            messages=[
+                {"role": "system", "content": SCORING_SYSTEM_PROMPT},
+                {"role": "user", "content": json_prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3,
+        )
+        raw = completion.choices[0].message.content
+        return LLMStoryScore(**json.loads(raw))
 
     def _is_crypto_relevant(self, story: RawStory) -> bool:
         """Hard pre-filter: reject anything with no crypto/digital-asset angle."""
