@@ -55,20 +55,25 @@ Detected tone should be one of: startup_funding, developer_tools, ai_safety, pro
 Map crypto stories to the closest matching category/tone (e.g. Bitcoin ETF → ai_regulation, exchange hack → ai_safety, DeFi protocol launch → product_launch, institutional adoption → startup_funding)."""
 
 
-def _build_groq_clients() -> list:
-    """Build a list of OpenAI-compatible Groq clients from GROQ_API_KEY_1/2/3 or GROQ_API_KEY."""
+def _build_nvidia_oss_clients() -> list:
+    """NVIDIA gpt-oss-20b pool — used for parallel scoring (NVIDIA_OSS_KEY_1..10)."""
     import os
     keys = []
-    # Support multiple keys for round-robin rotation
-    for var in ("GROQ_API_KEY_1", "GROQ_API_KEY_2", "GROQ_API_KEY_3", "GROQ_API_KEY"):
-        k = os.getenv(var, "")
+    for i in range(1, 11):
+        k = os.getenv(f"NVIDIA_OSS_KEY_{i}", "")
         if k and k not in keys:
             keys.append(k)
-    return [OpenAI(api_key=k, base_url="https://api.groq.com/openai/v1") for k in keys]
+    # Fallback: use main NVIDIA keys if OSS pool not set
+    if not keys:
+        for i in range(1, 6):
+            k = os.getenv(f"NVIDIA_API_KEY_{i}", "")
+            if k and k not in keys:
+                keys.append(k)
+    return [OpenAI(api_key=k, base_url="https://integrate.api.nvidia.com/v1") for k in keys]
 
 
 class StoryScorer:
-    """Scores stories using Groq (round-robin across keys) with OpenAI fallback."""
+    """Scores stories using NVIDIA gpt-oss-20b in parallel (one key per story)."""
 
     def __init__(self, client: OpenAI, config: dict, analytics_insights: dict | None = None):
         self.client = client
@@ -76,11 +81,11 @@ class StoryScorer:
         self.min_score = config.get("minimum_score", 55)
         self.model = config.get("llm_model", "gpt-4o")
 
-        # Prefer Groq clients for scoring (fast, no rate-limit pain)
-        self._groq_clients = _build_groq_clients()
-        self._groq_idx = 0
-        if self._groq_clients:
-            logger.info(f"Groq scoring enabled: {len(self._groq_clients)} key(s) in rotation")
+        # NVIDIA gpt-oss-20b pool for parallel scoring
+        self._nvidia_clients = _build_nvidia_oss_clients()
+        self._nvidia_idx = 0
+        if self._nvidia_clients:
+            logger.info(f"NVIDIA parallel scoring: {len(self._nvidia_clients)} key(s) — gpt-oss-20b")
 
         self._top_keywords: dict[str, float] = {}
         if analytics_insights:
@@ -88,11 +93,11 @@ class StoryScorer:
                 self._top_keywords[kw.lower()] = float(score)
 
     def _next_scoring_client(self):
-        """Return next Groq client in round-robin, or fall back to main client."""
-        if self._groq_clients:
-            client = self._groq_clients[self._groq_idx % len(self._groq_clients)]
-            self._groq_idx += 1
-            return client, "openai/gpt-oss-120b"
+        """Round-robin across NVIDIA keys, fall back to main client."""
+        if self._nvidia_clients:
+            client = self._nvidia_clients[self._nvidia_idx % len(self._nvidia_clients)]
+            self._nvidia_idx += 1
+            return client, "openai/gpt-oss-20b"
         return self.client, self.model
 
     def score_story(self, story: RawStory) -> ScoredStory:
@@ -182,29 +187,32 @@ class StoryScorer:
         )
 
     def score_stories(self, stories: list[RawStory]) -> list[ScoredStory]:
-        """Score multiple stories and return sorted by score (descending)."""
-        import time
-        scored = []
-        for story in stories:
+        """Score all stories in parallel (one NVIDIA key per story) then sort."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def _score_one(story):
             for attempt in range(3):
                 try:
                     result = self.score_story(story)
-                    scored.append(result)
                     status = "✓" if result.accepted else "✗"
-                    logger.info(
-                        f"  {status} [{result.score.total_score:3d}] {story.title[:70]}"
-                    )
-                    break
+                    logger.info(f"  {status} [{result.score.total_score:3d}] {story.title[:70]}")
+                    return result
                 except Exception as e:
-                    if "429" in str(e) or "rate" in str(e).lower() or "queue" in str(e).lower():
-                        wait = 30 * (attempt + 1)
-                        logger.warning(f"Rate limited scoring, waiting {wait}s (attempt {attempt+1}/3)")
-                        time.sleep(wait)
+                    if "429" in str(e) or "rate" in str(e).lower():
+                        import time
+                        time.sleep(10 * (attempt + 1))
                     else:
-                        logger.error(f"Failed to score story: {e}")
+                        logger.error(f"Failed to score '{story.title[:50]}': {e}")
                         break
+            return self._create_rejected(story, "Scoring failed after retries", 0)
 
-        # Sort by total score, accepted first
+        workers = max(1, min(len(stories), len(self._nvidia_clients) or 3))
+        scored = []
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_score_one, s): s for s in stories}
+            for fut in as_completed(futures):
+                scored.append(fut.result())
+
         scored.sort(key=lambda s: (s.accepted, s.score.total_score), reverse=True)
         return scored
 

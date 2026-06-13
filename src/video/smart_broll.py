@@ -78,7 +78,17 @@ class SmartBRollAgent:
         cookie_env = os.getenv("YOUTUBE_COOKIES_FILE", "")
         self.cookies_file = cookie_env if cookie_env else YTDLP_COOKIE_PATH
 
-        self.model = "openai/gpt-oss-120b"
+        self.model = "openai/gpt-oss-20b"
+        # Use NVIDIA OSS pool if available, otherwise fall back to passed client
+        import os
+        oss_keys = [os.getenv(f"NVIDIA_OSS_KEY_{i}", "") for i in range(1, 11)]
+        oss_keys = [k for k in oss_keys if k]
+        if not oss_keys:
+            oss_keys = [os.getenv(f"NVIDIA_API_KEY_{i}", "") for i in range(1, 6)]
+            oss_keys = [k for k in oss_keys if k]
+        if oss_keys:
+            from openai import OpenAI as _OAI
+            self.client = _OAI(api_key=oss_keys[0], base_url="https://integrate.api.nvidia.com/v1")
 
     def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
         """Run yt-dlp via python -m so bgutil PO token plugin (site-packages) is loaded."""
@@ -116,15 +126,24 @@ class SmartBRollAgent:
 
         # Fetch a UNIQUE Pexels video for EVERY section.
         # Each section gets its own search term for visual variety.
-        logger.info(f"Fetching unique Pexels video for each of {len(script.visual_plan)} sections...")
-        for i, cue in enumerate(script.visual_plan):
+        logger.info(f"Fetching unique Pexels video for each of {len(script.visual_plan)} sections (parallel)...")
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def _fetch_section(args):
+            i, cue = args
             section = cue.section
             out_path = self.output_dir / f"{section}_pexels.mp4"
             if out_path.exists() and out_path.stat().st_size > 10_000:
                 logger.info(f"Pexels cache hit for '{section}'")
-                media_paths[section] = str(out_path)
-            else:
-                ppath = self._fetch_pexels_video_for_section(story.title, section, i)
+                return section, str(out_path)
+            ppath = self._fetch_pexels_video_for_section(story.title, section, i)
+            return section, ppath
+
+        with ThreadPoolExecutor(max_workers=len(script.visual_plan)) as pool:
+            futures = {pool.submit(_fetch_section, (i, cue)): cue
+                       for i, cue in enumerate(script.visual_plan)}
+            for fut in as_completed(futures):
+                section, ppath = fut.result()
                 if ppath:
                     media_paths[section] = ppath
                 else:

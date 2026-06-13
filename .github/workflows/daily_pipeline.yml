@@ -73,6 +73,16 @@ jobs:
           NVIDIA_API_KEY_3: ${{ secrets.NVIDIA_API_KEY_3 }}
           NVIDIA_API_KEY_4: ${{ secrets.NVIDIA_API_KEY_4 }}
           NVIDIA_API_KEY_5: ${{ secrets.NVIDIA_API_KEY_5 }}
+          NVIDIA_OSS_KEY_1: ${{ secrets.NVIDIA_OSS_KEY_1 }}
+          NVIDIA_OSS_KEY_2: ${{ secrets.NVIDIA_OSS_KEY_2 }}
+          NVIDIA_OSS_KEY_3: ${{ secrets.NVIDIA_OSS_KEY_3 }}
+          NVIDIA_OSS_KEY_4: ${{ secrets.NVIDIA_OSS_KEY_4 }}
+          NVIDIA_OSS_KEY_5: ${{ secrets.NVIDIA_OSS_KEY_5 }}
+          NVIDIA_OSS_KEY_6: ${{ secrets.NVIDIA_OSS_KEY_6 }}
+          NVIDIA_OSS_KEY_7: ${{ secrets.NVIDIA_OSS_KEY_7 }}
+          NVIDIA_OSS_KEY_8: ${{ secrets.NVIDIA_OSS_KEY_8 }}
+          NVIDIA_OSS_KEY_9: ${{ secrets.NVIDIA_OSS_KEY_9 }}
+          NVIDIA_OSS_KEY_10: ${{ secrets.NVIDIA_OSS_KEY_10 }}
           GROQ_API_KEY_1: ${{ secrets.GROQ_API_KEY_1 }}
           GROQ_API_KEY_2: ${{ secrets.GROQ_API_KEY_2 }}
           GROQ_API_KEY_3: ${{ secrets.GROQ_API_KEY_3 }}
