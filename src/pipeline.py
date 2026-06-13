@@ -148,7 +148,7 @@ class Pipeline:
 
         # Metadata: NVIDIA GLM-5.1 (saves Groq TPD for scoring + quality gate)
         meta_config = {**self.config.get("scripts", {}), "llm_model": "z-ai/glm-5.1"}
-        self.metadata_generator = MetadataGenerator(self.client, meta_config)
+        self.metadata_generator = MetadataGenerator(self._nvidia_client or self._groq_client or self.openai_client, meta_config)
 
         # Output
         self.output_folder = self.config.get("output", {}).get("folder", "./output")
