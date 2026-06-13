@@ -111,6 +111,7 @@ class SmartBRollAgent:
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
             "-o", outtmpl,
             "--no-playlist",
+            "--remote-components", "ejs:github",
         ]
         if cookie_path.exists():
             logger.info(f"yt-dlp using cookies: {cookie_path} ({cookie_path.stat().st_size} bytes)")

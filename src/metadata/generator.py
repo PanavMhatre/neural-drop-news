@@ -115,6 +115,7 @@ Generate optimized metadata for this video."""
                 ],
                 LLMMetadataOutput,
                 temperature=0.6,
+                max_tokens=2000,
             )
         except Exception as e:
             logger.error(f"Metadata generation failed: {e}")
