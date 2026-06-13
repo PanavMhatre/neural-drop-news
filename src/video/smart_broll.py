@@ -80,7 +80,6 @@ class SmartBRollAgent:
 
         self.model = "openai/gpt-oss-20b"
         # Use NVIDIA OSS pool if available, otherwise fall back to passed client
-        import os
         oss_keys = [os.getenv(f"NVIDIA_OSS_KEY_{i}", "") for i in range(1, 11)]
         oss_keys = [k for k in oss_keys if k]
         if not oss_keys:

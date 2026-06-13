@@ -171,7 +171,9 @@ class Pipeline:
                 keys.append(k)
         if not keys:
             return None, None, [], 0
-        client = OpenAI(api_key=keys[0], base_url="https://integrate.api.nvidia.com/v1")
+        import httpx
+        client = OpenAI(api_key=keys[0], base_url="https://integrate.api.nvidia.com/v1",
+                        http_client=httpx.Client(timeout=120.0))
         model = "deepseek-ai/deepseek-v4-flash"
         logger.info(f"NVIDIA NIM enabled: {len(keys)} key(s), model={model}")
         return client, model, keys, 0
