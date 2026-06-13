@@ -98,7 +98,7 @@ def llm_parse(
     messages: list[dict],
     response_model: Type[T],
     temperature: float = 0.7,
-    max_tokens: int = 800,
+    max_tokens: int = 1500,
 ) -> T:
     """
     Call the LLM and parse the response into response_model.

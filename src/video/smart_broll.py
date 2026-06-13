@@ -129,6 +129,7 @@ class SmartBRollAgent:
 
         media_paths: dict[str, str] = {}
         youtube_succeeded = False
+        yt_audio_path = None
 
         # ── Step 1: Try YouTube first (real news footage) ────────────────────
         logger.info("Trying YouTube for b-roll...")
