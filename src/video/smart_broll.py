@@ -151,7 +151,8 @@ class SmartBRollAgent:
             def _fetch_section(args):
                 i, cue = args
                 section = cue.section
-                out_path = self.output_dir / f"{section}_pexels.mp4"
+                safe = self._safe_section_name(section)
+                out_path = self.output_dir / f"{safe}_pexels.mp4"
                 if out_path.exists() and out_path.stat().st_size > 10_000:
                     logger.info(f"Pexels cache hit for '{section}'")
                     return section, str(out_path)
@@ -317,19 +318,27 @@ class SmartBRollAgent:
 
     # ── Pixabay ───────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _safe_section_name(section: str) -> str:
+        """Normalize section name to a safe filename slug."""
+        import re
+        return re.sub(r'[^a-z0-9_]', '_', section.lower().strip()).strip('_') or "section"
+
     def _fetch_pexels_video_for_section(self, story_title: str, section: str, index: int) -> Optional[str]:
         """Fetch a unique Pexels video using section-specific search terms for visual variety."""
         if not self.pexels_api_key:
             logger.warning("PEXELS_API_KEY not set")
             return None
 
-        section_themes = SECTION_PIXABAY_THEMES.get(section, [])
+        # Normalize section name for theme lookup and filename safety
+        safe = self._safe_section_name(section)
+        section_themes = SECTION_PIXABAY_THEMES.get(safe) or SECTION_PIXABAY_THEMES.get(section, [])
         story_term = self._pixabay_terms(story_title)
         search_terms = section_themes + [story_term] + [
             t for t in self.FALLBACK_PIXABAY_TERMS if t not in section_themes and t != story_term
         ]
 
-        out_path = self.output_dir / f"{section}_pexels.mp4"
+        out_path = self.output_dir / f"{safe}_pexels.mp4"
         headers = {"Authorization": self.pexels_api_key}
 
         for term in search_terms:
