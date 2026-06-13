@@ -80,10 +80,10 @@ Visual plan should describe what text/graphics to show during each section."""
 
 
 def _build_glm_client() -> Optional[OpenAI]:
-    """Second script model: z-ai/glm-5.1 on NVIDIA (2.6s, excellent quality)."""
+    """Second script model: z-ai/glm-5.1 on NVIDIA (2.6s, excellent quality).
+    Uses dedicated NVIDIA_GLM_KEY_1..5, falls back to OSS or main NVIDIA keys."""
     import os
-    # Use OSS keys for GLM, fall back to main NVIDIA keys
-    for prefix in ("NVIDIA_OSS_KEY", "NVIDIA_API_KEY"):
+    for prefix in ("NVIDIA_GLM_KEY", "NVIDIA_OSS_KEY", "NVIDIA_API_KEY"):
         for i in range(1, 11):
             k = os.getenv(f"{prefix}_{i}", "")
             if k:
