@@ -79,19 +79,73 @@ Caption lines should be 3-5 words each, readable on a phone screen.
 Visual plan should describe what text/graphics to show during each section."""
 
 
+def _build_glm_client() -> Optional[OpenAI]:
+    """Second script model: z-ai/glm-5.1 on NVIDIA (2.6s, excellent quality)."""
+    import os
+    # Use OSS keys for GLM, fall back to main NVIDIA keys
+    for prefix in ("NVIDIA_OSS_KEY", "NVIDIA_API_KEY"):
+        for i in range(1, 11):
+            k = os.getenv(f"{prefix}_{i}", "")
+            if k:
+                return OpenAI(api_key=k, base_url="https://integrate.api.nvidia.com/v1")
+    return None
+
+
+def _judge_scripts(script_a: str, script_b: str, label_a: str, label_b: str) -> tuple[str, str]:
+    """Groq gpt-oss-120b judges two scripts and returns (winning_script, winner_label)."""
+    import os
+    groq_key = (
+        os.getenv("GROQ_API_KEY_1") or os.getenv("GROQ_API_KEY_2")
+        or os.getenv("GROQ_API_KEY_3") or os.getenv("GROQ_API_KEY")
+    )
+    if not groq_key:
+        return script_a, label_a  # no judge, default to primary
+    judge = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
+    try:
+        r = judge.chat.completions.create(
+            model="openai/gpt-oss-120b",
+            messages=[{"role": "user", "content": f"""You are a script quality judge for a crypto YouTube Shorts channel.
+Pick the better script based on: hook strength, originality, punchiness, clarity, closing line memorability.
+
+SCRIPT A:
+{script_a}
+
+SCRIPT B:
+{script_b}
+
+Respond with exactly one letter: A or B"""}],
+            temperature=0.1,
+            max_tokens=5,
+        )
+        winner = r.choices[0].message.content.strip().upper()
+        if "B" in winner:
+            logger.info(f"Judge picked {label_b} over {label_a}")
+            return script_b, label_b
+        logger.info(f"Judge picked {label_a} over {label_b}")
+        return script_a, label_a
+    except Exception as e:
+        logger.warning(f"Judge failed ({e}), using primary script")
+        return script_a, label_a
+
+
 class ScriptGenerator:
-    """Generates original scripts using GPT-4o."""
+    """Generates scripts using dual-model comparison: DeepSeek v4 Flash vs GLM-5.1, judge picks best."""
 
     def __init__(self, client: OpenAI, config: dict):
         self.client = client
         self.config = config
         self.channel_name = config.get("channel_name", "TechPulse Shorts")
-        self.model = config.get("llm_model", "gpt-4o")
+        self.model = config.get("llm_model", "deepseek-ai/deepseek-v4-flash")
         self.temperature = config.get("llm_temperature", 0.8)
         self.target_words = (
             config.get("target_word_count_min", 80),
             config.get("target_word_count_max", 120),
         )
+        # Second model for comparison
+        self._glm_client = _build_glm_client()
+        self._glm_model = "z-ai/glm-5.1"
+        if self._glm_client:
+            logger.info("Dual-model script comparison enabled: DeepSeek v4 Flash vs GLM-5.1")
 
     def generate_script(
         self,
@@ -146,22 +200,58 @@ Requirements:
 
 Generate the complete script with all required fields."""
 
-        try:
-            result = llm_parse(
-                self.client,
-                self.model,
-                [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                LLMScriptOutput,
-                temperature=self.temperature,
-            )
-        except Exception as e:
-            logger.error(f"Script generation failed: {e}")
-            raise
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
 
-        # Convert LLM output to our internal model
+        if self._glm_client:
+            # Generate both in parallel, judge picks the better full_script
+            from concurrent.futures import ThreadPoolExecutor
+
+            def _gen_primary():
+                return llm_parse(self.client, self.model, messages, LLMScriptOutput, self.temperature)
+
+            def _gen_glm():
+                return llm_parse(self._glm_client, self._glm_model, messages, LLMScriptOutput, self.temperature)
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                f_primary = pool.submit(_gen_primary)
+                f_glm = pool.submit(_gen_glm)
+                primary_result = exc_primary = None
+                glm_result = exc_glm = None
+                try:
+                    primary_result = f_primary.result()
+                except Exception as e:
+                    exc_primary = e
+                try:
+                    glm_result = f_glm.result()
+                except Exception as e:
+                    exc_glm = e
+
+            if primary_result and glm_result:
+                winning_script, winner = _judge_scripts(
+                    primary_result.full_script, glm_result.full_script,
+                    "DeepSeek", "GLM-5.1"
+                )
+                result = primary_result if winner == "DeepSeek" else glm_result
+                result.full_script = winning_script
+            elif primary_result:
+                if exc_glm:
+                    logger.warning(f"GLM-5.1 failed, using DeepSeek: {exc_glm}")
+                result = primary_result
+            elif glm_result:
+                logger.warning(f"DeepSeek failed, using GLM-5.1: {exc_primary}")
+                result = glm_result
+            else:
+                raise Exception(f"Both models failed — DeepSeek: {exc_primary} | GLM: {exc_glm}")
+        else:
+            try:
+                result = llm_parse(self.client, self.model, messages, LLMScriptOutput, self.temperature)
+            except Exception as e:
+                logger.error(f"Script generation failed: {e}")
+                raise
+
         return self._convert_output(result, structure.type)
 
     def _convert_output(
