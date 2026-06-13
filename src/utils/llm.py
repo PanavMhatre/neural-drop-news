@@ -49,13 +49,32 @@ def _schema_hint(model_cls: Type[T]) -> str:
     return "{\n" + ",\n".join(lines) + "\n}"
 
 
+def _parse_duration(val) -> float:
+    """Convert duration_hint values like '3s', '0-3s', '3-12s', 8 → float seconds."""
+    if isinstance(val, (int, float)):
+        return float(val)
+    if not isinstance(val, str):
+        return 8.0
+    val = val.strip().rstrip("s").strip()
+    if "-" in val:
+        parts = val.split("-")
+        try:
+            return (float(parts[0]) + float(parts[1])) / 2
+        except ValueError:
+            return 8.0
+    try:
+        return float(val)
+    except ValueError:
+        return 8.0
+
+
 def _repair_visual_plan(data: dict) -> dict:
-    """If visual_plan items are strings instead of dicts, coerce them."""
+    """Coerce visual_plan items: string items → dicts, and fix duration_hint strings."""
     vp = data.get("visual_plan", [])
-    if not vp or isinstance(vp[0], dict):
+    if not vp:
         return data
-    repaired = []
     sections = ["hook", "move", "strategy", "industry_signal", "close"]
+    repaired = []
     for i, item in enumerate(vp):
         if isinstance(item, str):
             repaired.append({
@@ -64,6 +83,9 @@ def _repair_visual_plan(data: dict) -> dict:
                 "text_overlay": None,
                 "duration_hint": 8.0,
             })
+        elif isinstance(item, dict):
+            item["duration_hint"] = _parse_duration(item.get("duration_hint", 8.0))
+            repaired.append(item)
         else:
             repaired.append(item)
     data["visual_plan"] = repaired
