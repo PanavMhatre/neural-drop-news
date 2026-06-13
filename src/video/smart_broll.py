@@ -78,6 +78,7 @@ class SmartBRollAgent:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.client = openai_client
         self.pexels_api_key = os.getenv("PEXELS_API_KEY", "RnbckPtXv2kk3u4CaTIA0jv1T0IxZRT0MTxbd4LDUAw4qUid3KxOtwOY")
+        self.pixabay_api_key = os.getenv("PIXABAY_API_KEY", "")
         self.youtube_api_key = os.getenv("YOUTUBE_API_KEY", "")
 
         # Cookie file: env override or standard yt-dlp location written by workflow
@@ -98,16 +99,17 @@ class SmartBRollAgent:
     def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
         """Run yt-dlp via python -m so bgutil PO token plugin (site-packages) is loaded."""
         cookie_path = Path.home() / ".config/yt-dlp/cookies.txt"
-        if cookie_path.exists():
-            logger.info(f"yt-dlp cookies present: {cookie_path} ({cookie_path.stat().st_size} bytes)")
-        else:
-            logger.warning(f"No yt-dlp cookie file at {cookie_path}")
         cmd = [
             "python", "-m", "yt_dlp",
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
             "-o", outtmpl,
             "--no-playlist",
         ]
+        if cookie_path.exists():
+            logger.info(f"yt-dlp using cookies: {cookie_path} ({cookie_path.stat().st_size} bytes)")
+            cmd += ["--cookies", str(cookie_path)]
+        else:
+            logger.warning(f"No yt-dlp cookie file at {cookie_path}")
         if write_subs:
             cmd += ["--write-subs", "--write-auto-subs", "--sub-langs", "en", "--sub-format", "vtt"]
         cmd.append(url)
@@ -152,11 +154,21 @@ class SmartBRollAgent:
                 i, cue = args
                 section = cue.section
                 safe = self._safe_section_name(section)
-                out_path = self.output_dir / f"{safe}_pexels.mp4"
+                out_path = self.output_dir / f"{safe}_broll.mp4"
                 if out_path.exists() and out_path.stat().st_size > 10_000:
-                    logger.info(f"Pexels cache hit for '{section}'")
+                    logger.info(f"B-roll cache hit for '{section}'")
                     return section, str(out_path)
-                ppath = self._fetch_pexels_video_for_section(story.title, section, i)
+                # Alternate sources per section index for variety
+                # Even sections → Pexels, odd sections → Pixabay (if available)
+                use_pixabay = (i % 2 == 1) and bool(self.pixabay_api_key)
+                if use_pixabay:
+                    ppath = self._fetch_pixabay_video(story.title, section, i, cue.description, out_path)
+                    if not ppath:
+                        ppath = self._fetch_pexels_video_for_section(story.title, section, i, cue.description, out_path)
+                else:
+                    ppath = self._fetch_pexels_video_for_section(story.title, section, i, cue.description, out_path)
+                    if not ppath and self.pixabay_api_key:
+                        ppath = self._fetch_pixabay_video(story.title, section, i, cue.description, out_path)
                 return section, ppath
 
             with ThreadPoolExecutor(max_workers=len(script.visual_plan)) as pool:
@@ -324,21 +336,27 @@ class SmartBRollAgent:
         import re
         return re.sub(r'[^a-z0-9_]', '_', section.lower().strip()).strip('_') or "section"
 
-    def _fetch_pexels_video_for_section(self, story_title: str, section: str, index: int) -> Optional[str]:
-        """Fetch a unique Pexels video using section-specific search terms for visual variety."""
+    def _fetch_pexels_video_for_section(self, story_title: str, section: str, index: int,
+                                         cue_description: str = "", out_path=None) -> Optional[str]:
+        """Fetch a unique Pexels video using cue description + section themes for visual variety."""
         if not self.pexels_api_key:
             logger.warning("PEXELS_API_KEY not set")
             return None
 
-        # Normalize section name for theme lookup and filename safety
         safe = self._safe_section_name(section)
+        if out_path is None:
+            out_path = self.output_dir / f"{safe}_broll.mp4"
+
         section_themes = SECTION_PIXABAY_THEMES.get(safe) or SECTION_PIXABAY_THEMES.get(section, [])
         story_term = self._pixabay_terms(story_title)
-        search_terms = section_themes + [story_term] + [
-            t for t in self.FALLBACK_PIXABAY_TERMS if t not in section_themes and t != story_term
-        ]
+        # Use cue description as first search term for maximum relevance/variety
+        cue_term = " ".join(cue_description.split()[:4]) if cue_description else ""
+        search_terms = (
+            ([cue_term] if cue_term else []) +
+            section_themes + [story_term] +
+            [t for t in self.FALLBACK_PIXABAY_TERMS if t not in section_themes and t != story_term]
+        )
 
-        out_path = self.output_dir / f"{safe}_pexels.mp4"
         headers = {"Authorization": self.pexels_api_key}
 
         for term in search_terms:
@@ -408,54 +426,60 @@ class SmartBRollAgent:
         "city lights night",
     ]
 
-    def _fetch_pixabay_video(self, story_title: str, section: str, index: int) -> Optional[str]:
+    def _fetch_pixabay_video(self, story_title: str, section: str, index: int,
+                              cue_description: str = "", out_path=None) -> Optional[str]:
+        """Fetch from Pixabay using cue description → section theme → story keyword → fallbacks."""
         if not self.pixabay_api_key:
-            logger.warning("PIXABAY_API_KEY not set")
             return None
 
-        primary_term = self._pixabay_terms(story_title)
-        search_terms = [primary_term] + [t for t in self.FALLBACK_PIXABAY_TERMS if t != primary_term]
+        safe = self._safe_section_name(section)
+        if out_path is None:
+            out_path = self.output_dir / f"{safe}_broll.mp4"
+
+        section_themes = SECTION_PIXABAY_THEMES.get(safe) or SECTION_PIXABAY_THEMES.get(section, [])
+        story_term = self._pixabay_terms(story_title)
+        cue_term = " ".join(cue_description.split()[:4]) if cue_description else ""
+        search_terms = (
+            ([cue_term] if cue_term else []) +
+            section_themes + [story_term] +
+            [t for t in self.FALLBACK_PIXABAY_TERMS if t != story_term]
+        )
 
         for term in search_terms:
-            logger.info(f"Pixabay search for '{section}': '{term}'")
+            logger.info(f"Pixabay [{section}] searching: '{term}'")
             try:
                 resp = requests.get(
-                    PIXABAY_API_URL,
-                    params={"key": self.pixabay_api_key, "q": term, "video_type": "film", "per_page": 20, "safesearch": "true"},
+                    "https://pixabay.com/api/videos/",
+                    params={"key": self.pixabay_api_key, "q": term, "video_type": "film",
+                            "per_page": 20, "safesearch": "true"},
                     timeout=15,
                 )
                 resp.raise_for_status()
                 hits = resp.json().get("hits", [])
                 if not hits:
-                    logger.warning(f"Pixabay no results for '{term}', trying next term")
                     continue
-
-                # Try each hit until one downloads successfully
-                for attempt, hit in enumerate(hits[index % len(hits):index % len(hits) + 5] or hits[:5]):
+                offset = (index * 3) % len(hits)
+                for hit in (hits[offset:offset+3] or hits[:3]):
                     videos = hit.get("videos", {})
                     video_info = (videos.get("medium") or videos.get("large")
                                   or videos.get("small") or videos.get("tiny"))
                     if not video_info:
                         continue
-                    out_path = self.output_dir / f"{section}_pixabay.mp4"
                     try:
                         dl = requests.get(video_info["url"], timeout=60, stream=True)
                         dl.raise_for_status()
                         with open(out_path, "wb") as f:
                             for chunk in dl.iter_content(chunk_size=1 << 16):
                                 f.write(chunk)
-                        if out_path.exists() and out_path.stat().st_size > 10_000:
-                            logger.info(f"Pixabay video saved: {out_path} (term='{term}')")
+                        if Path(out_path).stat().st_size > 10_000:
+                            logger.info(f"Pixabay [{section}] saved ({term}): {out_path}")
                             return str(out_path)
                     except Exception as e:
-                        logger.warning(f"Pixabay download attempt {attempt} failed: {e}")
-                        continue
-
+                        logger.warning(f"Pixabay download failed: {e}")
             except Exception as e:
-                logger.warning(f"Pixabay fetch failed for term '{term}': {e}")
-                continue
+                logger.warning(f"Pixabay search failed for '{term}': {e}")
 
-        logger.error(f"All Pixabay search terms exhausted for section '{section}'")
+        logger.error(f"Pixabay exhausted all terms for section '{section}'")
         return None
 
     # ── Utilities ──────────────────────────────────────────────────────────────

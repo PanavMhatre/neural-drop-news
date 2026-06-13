@@ -33,7 +33,10 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg python3-dev libgl1 libglib2.0-0 \
-            fonts-liberation fonts-open-sans
+            fonts-liberation fonts-open-sans unzip
+          # Install deno for yt-dlp JavaScript runtime (required for YouTube)
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "$HOME/.deno/bin" >> $GITHUB_PATH
 
       # ── Python ──────────────────────────────────────────────────────────────
       - name: Set up Python 3.11
@@ -77,6 +80,7 @@ jobs:
           NEWSDATA_API_KEY: ${{ secrets.NEWSDATA_API_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           NVIDIA_API_KEY_1: ${{ secrets.NVIDIA_API_KEY_1 }}
           NVIDIA_API_KEY_2: ${{ secrets.NVIDIA_API_KEY_2 }}
           NVIDIA_API_KEY_3: ${{ secrets.NVIDIA_API_KEY_3 }}
