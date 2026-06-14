@@ -10,6 +10,7 @@ import webvtt
 from pydantic import BaseModel, Field
 
 from src.models.schemas import GeneratedScript, RawStory, VisualCue
+from src.video.channel_roster import weighted_sample
 from src.video.engagement_crop import engagement_window_start
 
 logger = logging.getLogger(__name__)
@@ -303,29 +304,38 @@ class SmartBRollAgent:
         return self._youtube_search(title)
 
     def _youtube_api_search(self, title: str) -> list[tuple[str, str]]:
-        """Use YouTube Data API v3 to find candidate video IDs — returns up to 5 results."""
+        """Search YouTube Data API within weighted crypto channels — 3 channels × 2 results = 6 candidates."""
         if not self.youtube_api_key:
             return []
-        try:
-            resp = requests.get(
-                YOUTUBE_SEARCH_API,
-                params={
-                    "key": self.youtube_api_key,
-                    "q": f"{title} crypto news",
-                    "part": "snippet",
-                    "type": "video",
-                    "maxResults": 5,
-                    "videoDuration": "short",
-                    "order": "relevance",
-                },
-                timeout=15,
-            )
-            resp.raise_for_status()
-            items = resp.json().get("items", [])
-            return [(item["id"]["videoId"], item["snippet"]["title"]) for item in items]
-        except Exception as e:
-            logger.warning(f"YouTube API search failed: {e}")
-        return []
+        candidates: list[tuple[str, str]] = []
+        for channel_alias in weighted_sample(3):
+            query = f"{title} {channel_alias}"
+            try:
+                resp = requests.get(
+                    YOUTUBE_SEARCH_API,
+                    params={
+                        "key": self.youtube_api_key,
+                        "q": query,
+                        "part": "snippet",
+                        "type": "video",
+                        "maxResults": 2,
+                        "videoDuration": "medium",  # 4-20 min — skips Shorts
+                        "order": "relevance",
+                    },
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                items = resp.json().get("items", [])
+                for item in items:
+                    vid = item["id"]["videoId"]
+                    snippet_title = item["snippet"]["title"]
+                    # skip Shorts by title heuristic
+                    if "#shorts" not in snippet_title.lower() and "short" not in snippet_title.lower():
+                        candidates.append((vid, snippet_title))
+            except Exception as e:
+                logger.warning(f"YouTube channel search failed for '{channel_alias}': {e}")
+        logger.info(f"YouTube channel search found {len(candidates)} candidates")
+        return candidates
 
     def _youtube_search(self, title: str) -> tuple[Optional[str], Optional[str]]:
         # Try each API result in sequence until one downloads successfully
