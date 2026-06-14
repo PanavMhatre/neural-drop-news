@@ -38,10 +38,13 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y ffmpeg python3-dev libgl1 libglib2.0-0 \
             libsndfile1 fonts-liberation fonts-open-sans unzip
-          # yt-dlp binary (latest) — android,web_creator clients bypass datacenter IP bot-check
+          # yt-dlp binary (latest)
           sudo curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
             -o /usr/local/bin/yt-dlp && sudo chmod +x /usr/local/bin/yt-dlp
           yt-dlp --version
+          # Deno — yt-dlp uses it to solve YouTube JS challenges
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "$HOME/.deno/bin" >> $GITHUB_PATH
           # yt-dlp config: sleep/retry flags + android,web_creator (no cookies needed)
           mkdir -p ~/.config/yt-dlp
           printf '%s\n' \

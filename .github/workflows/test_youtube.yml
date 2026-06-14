@@ -10,21 +10,34 @@ on:
 jobs:
   test-youtube:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install yt-dlp binary and ffmpeg
+      - name: Install yt-dlp, ffmpeg, and Deno
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg
+          # yt-dlp binary
           sudo curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
             -o /usr/local/bin/yt-dlp && sudo chmod +x /usr/local/bin/yt-dlp
           yt-dlp --version
+          # Deno — yt-dlp uses it to solve YouTube JS challenges
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "$HOME/.deno/bin" >> $GITHUB_PATH
+          # yt-dlp config via printf (no heredoc — heredoc adds leading spaces)
           mkdir -p ~/.config/yt-dlp
-          printf '%s\n' '--no-check-certificate' '--socket-timeout 15' '--retries 3' > ~/.config/yt-dlp/config
-          echo "Config written:"; cat ~/.config/yt-dlp/config
+          printf '%s\n' \
+            '--no-check-certificate' \
+            '--sleep-requests 2' \
+            '--sleep-interval 3' \
+            '--max-sleep-interval 8' \
+            '--retries 5' \
+            '--retry-sleep 15' \
+            '--extractor-args "youtube:player_client=ios,android,web_creator"' \
+            > ~/.config/yt-dlp/config
+          echo "Config:"; cat ~/.config/yt-dlp/config
 
       - uses: actions/setup-python@v5
         with:
