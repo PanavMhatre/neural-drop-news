@@ -55,6 +55,7 @@ jobs:
             '--retries 5' \
             '--retry-sleep 15' \
             '--extractor-args youtube:player_client=ios,android,web_creator' \
+
             > ~/.config/yt-dlp/config
           echo "yt-dlp config:"; cat ~/.config/yt-dlp/config
 
