@@ -32,16 +32,27 @@ jobs:
       # ── Checkout ──────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
 
-      # ── System deps + yt-dlp binary + Deno ───────────────────────────────
-      - name: Install ffmpeg, yt-dlp binary, and Deno
+      # ── System deps + yt-dlp binary ───────────────────────────────────────
+      - name: Install system dependencies
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y ffmpeg libsndfile1 fonts-liberation unzip
-          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-            -o /usr/local/bin/yt-dlp
-          sudo chmod +x /usr/local/bin/yt-dlp
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "$HOME/.deno/bin" >> $GITHUB_PATH
+          sudo apt-get install -y ffmpeg python3-dev libgl1 libglib2.0-0 \
+            libsndfile1 fonts-liberation fonts-open-sans unzip
+          # yt-dlp binary (latest) — android,web_creator clients bypass datacenter IP bot-check
+          sudo curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+            -o /usr/local/bin/yt-dlp && sudo chmod +x /usr/local/bin/yt-dlp
+          yt-dlp --version
+          # yt-dlp config: sleep/retry flags + android,web_creator (no cookies needed)
+          mkdir -p ~/.config/yt-dlp
+          cat > ~/.config/yt-dlp/config << 'EOF'
+          --no-check-certificate
+          --sleep-requests 2
+          --sleep-interval 3
+          --max-sleep-interval 8
+          --retries 5
+          --retry-sleep 15
+          --extractor-args youtube:player_client=android,web_creator
+          EOF
 
       # ── Python ────────────────────────────────────────────────────────────
       - uses: actions/setup-python@v5
@@ -53,25 +64,20 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install bgutil-ytdlp-pot-provider
-          git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git \
-            ~/bgutil-ytdlp-pot-provider
+          pip install opencv-python-headless webvtt-py
 
-      - name: Start bgutil PO token HTTP server
+      # ── Montserrat / Anton fonts ──────────────────────────────────────────
+      - name: Install fonts
         run: |
-          cd ~/bgutil-ytdlp-pot-provider/server
-          deno install
-          deno cache src/main.ts src/generate_once.ts
-          nohup deno run --allow-all src/main.ts > /tmp/bgutil-server.log 2>&1 &
-          echo "bgutil server PID: $!"
-          for i in $(seq 1 20); do
-            if curl -sf http://localhost:4416/ping > /dev/null 2>&1; then
-              echo "bgutil server ready after ${i}s"
-              break
-            fi
-            sleep 1
-          done
-          curl -s "http://localhost:4416/get_po_token?videoId=dQw4w9WgXcQ" || echo "token fetch attempted"
+          mkdir -p assets/fonts/Montserrat assets/fonts/Anton
+          wget -q "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Bold.ttf" \
+            -O assets/fonts/Montserrat/Montserrat-Bold.ttf
+          wget -q "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Black.ttf" \
+            -O assets/fonts/Montserrat/Montserrat-Black.ttf
+          wget -q "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-SemiBold.ttf" \
+            -O assets/fonts/Montserrat/Montserrat-SemiBold.ttf
+          wget -q "https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf" \
+            -O assets/fonts/Anton/Anton-Regular.ttf
 
       # ── Persist SQLite DB between runs (dedup memory) ────────────────────
       - name: Restore dedup database
@@ -84,58 +90,49 @@ jobs:
       - name: Ensure data dir exists
         run: mkdir -p data output
 
-      # ── yt-dlp cookies (authenticated YouTube session) ────────────────────
-      - name: Write yt-dlp cookies
-        env:
-          YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
-        run: |
-          mkdir -p ~/.config/yt-dlp
-          if [ -n "$YTDLP_COOKIES" ]; then
-            echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
-            echo "Cookies written ($(wc -l < ~/.config/yt-dlp/cookies.txt) lines)."
-          fi
-
-      # ── yt-dlp config (sleep flags + cookies path) ─────────────────────────
-      - name: Write yt-dlp config
-        run: |
-          python3 - << 'PYEOF'
-          from pathlib import Path
-          config_dir = Path.home() / ".config/yt-dlp"
-          config_dir.mkdir(parents=True, exist_ok=True)
-          cookies = config_dir / "cookies.txt"
-          lines = [
-              "--no-check-certificate",
-              "--sleep-requests 2",
-              "--sleep-interval 3",
-              "--max-sleep-interval 8",
-              "--retries 5",
-              "--retry-sleep 15",
-              "--remote-components ejs:github",
-          ]
-          if cookies.exists():
-              lines.append(f"--cookies {cookies}")
-          (config_dir / "config").write_text("\n".join(lines) + "\n")
-          print("yt-dlp config written.")
-          PYEOF
-
       # ── Run pipeline ──────────────────────────────────────────────────────
       - name: Generate clips and schedule to Buffer
         env:
-          OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_KEY:           placeholder
           NEWSDATA_API_KEY:         ${{ secrets.NEWSDATA_API_KEY }}
-          BUFFER_API_KEY:           ${{ secrets.BUFFER_API_KEY }}
-          BUFFER_PROFILE_NAME:      NeuralDropBits
-          BUFFER_CHANNEL_IDS:       ${{ secrets.BUFFER_CHANNEL_IDS }}
-          DISCORD_WEBHOOK_URL:      ${{ secrets.DISCORD_WEBHOOK_URL }}
-          GITHUB_TOKEN:             ${{ secrets.STORAGE_TOKEN }}
-          GITHUB_STORAGE_REPO:      panavm12-jpg/storage
-          GITHUB_STORAGE_BRANCH:    main
-          GITHUB_STORAGE_PREFIX:    news
-          YOUTUBE_COOKIES_FILE:     /home/runner/.config/yt-dlp/cookies.txt
           YOUTUBE_API_KEY:          ${{ secrets.YOUTUBE_API_KEY }}
-          ZERNIO_API_KEY:           ${{ secrets.ZERNIO_API_KEY }}
           PEXELS_API_KEY:           ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY:          ${{ secrets.PIXABAY_API_KEY }}
+          COVERR_API_KEY_1:         ${{ secrets.COVERR_API_KEY_1 }}
+          COVERR_API_KEY_2:         ${{ secrets.COVERR_API_KEY_2 }}
+          COVERR_API_KEY_3:         ${{ secrets.COVERR_API_KEY_3 }}
+          NVIDIA_API_KEY_1:         ${{ secrets.NVIDIA_API_KEY_1 }}
+          NVIDIA_API_KEY_2:         ${{ secrets.NVIDIA_API_KEY_2 }}
+          NVIDIA_API_KEY_3:         ${{ secrets.NVIDIA_API_KEY_3 }}
+          NVIDIA_API_KEY_4:         ${{ secrets.NVIDIA_API_KEY_4 }}
+          NVIDIA_API_KEY_5:         ${{ secrets.NVIDIA_API_KEY_5 }}
+          NVIDIA_OSS_KEY_1:         ${{ secrets.NVIDIA_OSS_KEY_1 }}
+          NVIDIA_OSS_KEY_2:         ${{ secrets.NVIDIA_OSS_KEY_2 }}
+          NVIDIA_OSS_KEY_3:         ${{ secrets.NVIDIA_OSS_KEY_3 }}
+          NVIDIA_OSS_KEY_4:         ${{ secrets.NVIDIA_OSS_KEY_4 }}
+          NVIDIA_OSS_KEY_5:         ${{ secrets.NVIDIA_OSS_KEY_5 }}
+          NVIDIA_OSS_KEY_6:         ${{ secrets.NVIDIA_OSS_KEY_6 }}
+          NVIDIA_OSS_KEY_7:         ${{ secrets.NVIDIA_OSS_KEY_7 }}
+          NVIDIA_OSS_KEY_8:         ${{ secrets.NVIDIA_OSS_KEY_8 }}
+          NVIDIA_OSS_KEY_9:         ${{ secrets.NVIDIA_OSS_KEY_9 }}
+          NVIDIA_OSS_KEY_10:        ${{ secrets.NVIDIA_OSS_KEY_10 }}
+          NVIDIA_GLM_KEY_1:         ${{ secrets.NVIDIA_GLM_KEY_1 }}
+          NVIDIA_GLM_KEY_2:         ${{ secrets.NVIDIA_GLM_KEY_2 }}
+          NVIDIA_GLM_KEY_3:         ${{ secrets.NVIDIA_GLM_KEY_3 }}
+          NVIDIA_GLM_KEY_4:         ${{ secrets.NVIDIA_GLM_KEY_4 }}
+          NVIDIA_GLM_KEY_5:         ${{ secrets.NVIDIA_GLM_KEY_5 }}
+          GROQ_API_KEY_1:           ${{ secrets.GROQ_API_KEY_1 }}
+          GROQ_API_KEY_2:           ${{ secrets.GROQ_API_KEY_2 }}
+          GROQ_API_KEY_3:           ${{ secrets.GROQ_API_KEY_3 }}
+          BUFFER_API_KEY:           ${{ secrets.BUFFER_API_KEY }}
+          BUFFER_CHANNEL_IDS:       ${{ secrets.BUFFER_CHANNEL_IDS }}
+          ZERNIO_API_KEY:           ${{ secrets.ZERNIO_API_KEY }}
           ELEVENLABS_API_KEY:       ${{ secrets.ELEVENLABS_API_KEY }}
+          DISCORD_WEBHOOK_URL:      ${{ secrets.DISCORD_WEBHOOK_URL }}
+          STORAGE_REPO:             panavm12-jpg/storage
+          STORAGE_BRANCH:           main
+          STORAGE_TOKEN:            ${{ secrets.STORAGE_TOKEN }}
+          GITHUB_TOKEN:             ${{ secrets.GITHUB_TOKEN }}
         run: |
           COUNT=${{ github.event.inputs.count || '7' }}
           TOPIC="${{ github.event.inputs.topic }}"
