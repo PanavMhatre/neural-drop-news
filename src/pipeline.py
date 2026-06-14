@@ -261,8 +261,8 @@ class Pipeline:
                 logger.warning("No stories discovered. Pipeline complete.")
                 return []
 
-            # Step 2: Pre-filter to top 10 by heuristic before expensive LLM scoring
-            stories = self._heuristic_prefilter(stories, top_n=10)
+            # Step 2: Pre-filter to top 20 by heuristic before expensive LLM scoring
+            stories = self._heuristic_prefilter(stories, top_n=20)
             logger.info(f"Pre-filtered to {len(stories)} stories for LLM scoring")
 
             # Step 3: Score and filter
@@ -302,7 +302,7 @@ class Pipeline:
     def discover(
         self,
         topic: Optional[str] = None,
-        max_results: int = 20,
+        max_results: int = 50,
     ) -> list:
         """Discover news stories from configured sources."""
         from src.models.schemas import RawStory
@@ -346,6 +346,14 @@ class Pipeline:
         high_value = {"bitcoin", "ethereum", "solana", "btc", "eth", "etf", "regulation", "sec",
                       "hack", "stablecoin", "defi", "institutional", "coinbase", "binance"}
 
+        # Hard-reject presale shills, price predictions, and opinion "top picks" before LLM scoring
+        shill_patterns = re.compile(
+            r"\b(presale|top \d+ crypto|cryptos? to buy|price prediction|could .* be|"
+            r"right pick|losing momentum|gains momentum|collects \$|raised \$.*presale|"
+            r"pepeto|pepe2|meme ?coin presale)\b",
+            re.IGNORECASE
+        )
+
         now = datetime.now(timezone.utc)
 
         def _score(story):
@@ -366,6 +374,7 @@ class Pipeline:
 
             return freshness + kw_score
 
+        stories = [s for s in stories if not shill_patterns.search(s.title or "")]
         ranked = sorted(stories, key=_score, reverse=True)
         return ranked[:top_n]
 
