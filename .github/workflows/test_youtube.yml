@@ -23,13 +23,8 @@ jobs:
             -o /usr/local/bin/yt-dlp && sudo chmod +x /usr/local/bin/yt-dlp
           yt-dlp --version
           mkdir -p ~/.config/yt-dlp
-          cat > ~/.config/yt-dlp/config << 'YTDLP_EOF'
---no-check-certificate
---socket-timeout 15
---retries 3
-YTDLP_EOF
-          echo "Config written:"
-          cat ~/.config/yt-dlp/config
+          printf '%s\n' '--no-check-certificate' '--socket-timeout 15' '--retries 3' > ~/.config/yt-dlp/config
+          echo "Config written:"; cat ~/.config/yt-dlp/config
 
       - uses: actions/setup-python@v5
         with:
