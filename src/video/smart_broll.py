@@ -85,6 +85,7 @@ class SmartBRollAgent:
         ] if k]
         self._coverr_idx = 0
         self.youtube_api_key = os.getenv("YOUTUBE_API_KEY", "")
+        self._pixabay_timeout_count = 0  # circuit breaker: give up after 2 consecutive timeouts
 
         self.model = "openai/gpt-oss-20b"
         # Use NVIDIA OSS pool if available, otherwise fall back to passed client
@@ -352,16 +353,6 @@ class SmartBRollAgent:
                     return str(video_path), str(subs_path) if subs_path else None
             time.sleep(3)
 
-        # Fallback: yt-dlp binary keyword search
-        search_query = f"ytsearch1:{title} crypto news"
-        logger.info(f"YouTube keyword search fallback: {search_query}")
-        outtmpl = str(self.output_dir / "source_video.%(ext)s")
-        if self._ydl_bin_download(search_query, outtmpl, write_subs=True):
-            video_path = next(self.output_dir.glob("source_video.mp4"), None) or next(self.output_dir.glob("source_video.*"), None)
-            subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
-            if video_path and video_path.exists():
-                logger.info("YouTube keyword search downloaded successfully")
-                return str(video_path), str(subs_path) if subs_path else None
         return None, None
 
     # ── Pixabay ───────────────────────────────────────────────────────────────
@@ -467,6 +458,9 @@ class SmartBRollAgent:
         """Fetch from Pixabay using cue description → section theme → story keyword → fallbacks."""
         if not self.pixabay_api_key:
             return None
+        if self._pixabay_timeout_count >= 2:
+            logger.warning(f"Pixabay circuit breaker open — skipping section '{section}'")
+            return None
 
         safe = self._safe_section_name(section)
         if out_path is None:
@@ -514,6 +508,11 @@ class SmartBRollAgent:
                         logger.warning(f"Pixabay download failed: {e}")
             except Exception as e:
                 logger.warning(f"Pixabay search failed for '{term}': {e}")
+                if "timed out" in str(e).lower() or "Read timed out" in str(e):
+                    self._pixabay_timeout_count += 1
+                    if self._pixabay_timeout_count >= 2:
+                        logger.warning("Pixabay circuit breaker tripped — aborting Pixabay for this run")
+                        return None
 
         logger.error(f"Pixabay exhausted all terms for section '{section}'")
         return None
