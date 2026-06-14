@@ -34,9 +34,6 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg python3-dev libgl1 libglib2.0-0 \
             fonts-liberation fonts-open-sans unzip
-          # Install deno for yt-dlp JavaScript runtime (required for YouTube)
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "$HOME/.deno/bin" >> $GITHUB_PATH
 
       # ── Python ──────────────────────────────────────────────────────────────
       - name: Set up Python 3.11
@@ -63,24 +60,6 @@ jobs:
             -O assets/fonts/Montserrat/Montserrat-SemiBold.ttf
           wget -q "https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf" \
             -O assets/fonts/Anton/Anton-Regular.ttf
-
-      # ── yt-dlp config + cookies ─────────────────────────────────────────────
-      - name: Configure yt-dlp
-        env:
-          YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
-        run: |
-          mkdir -p ~/.config/yt-dlp
-          echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
-          cat > ~/.config/yt-dlp/config << 'EOF'
-          --no-check-certificate
-          --sleep-requests 2
-          --sleep-interval 3
-          --max-sleep-interval 8
-          --retries 5
-          --retry-sleep 15
-          --cookies /home/runner/.config/yt-dlp/cookies.txt
-          EOF
-          echo "yt-dlp config written. Cookies: $(wc -l < ~/.config/yt-dlp/cookies.txt) lines"
 
       # ── Run pipeline ────────────────────────────────────────────────────────
       - name: Run Neural Drop pipeline

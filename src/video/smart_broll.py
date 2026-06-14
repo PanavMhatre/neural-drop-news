@@ -104,11 +104,11 @@ class SmartBRollAgent:
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
             "-o", outtmpl,
             "--no-playlist",
-            "--remote-components", "ejs:github",
+            "--extractor-args", "youtube:player_client=android",
             "--socket-timeout", "15",
         ]
-        # Cookies are rejected by YouTube from CI/datacenter IPs — run cookieless.
-        # The ejs:github n-challenge solver handles bot detection without auth.
+        # Android client hits youtubei.googleapis.com — bypasses web-player bot detection
+        # on datacenter IPs without needing cookies or the n-challenge solver.
         if write_subs:
             cmd += ["--write-subs", "--write-auto-subs", "--sub-langs", "en", "--sub-format", "vtt"]
         cmd.append(url)
