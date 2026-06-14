@@ -99,7 +99,7 @@ class SmartBRollAgent:
             self.client = _OAI(api_key=oss_keys[0], base_url="https://integrate.api.nvidia.com/v1")
 
     def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
-        """android,web_creator client order bypasses YouTube's datacenter IP bot-check
+        """ios,android,web_creator client order bypasses YouTube's datacenter IP bot-check
         without cookies. yt-dlp tries each in sequence and uses the first valid stream."""
         sub_flags = ["--write-subs", "--write-auto-subs", "--sub-langs", "en", "--sub-format", "vtt"] if write_subs else []
         cmd = [
@@ -107,7 +107,7 @@ class SmartBRollAgent:
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
             "-o", outtmpl,
             "--no-playlist",
-            "--extractor-args", "youtube:player_client=android,web_creator",
+            "--extractor-args", "youtube:player_client=ios,android,web_creator",
             "--socket-timeout", "15",
         ] + sub_flags + [url]
         logger.info(f"yt-dlp cmd: {' '.join(cmd)}")
@@ -302,10 +302,10 @@ class SmartBRollAgent:
 
         return self._youtube_search(title)
 
-    def _youtube_api_search(self, title: str) -> Optional[str]:
-        """Use YouTube Data API v3 to find best video ID — no bot detection on search."""
+    def _youtube_api_search(self, title: str) -> list[tuple[str, str]]:
+        """Use YouTube Data API v3 to find candidate video IDs — returns up to 5 results."""
         if not self.youtube_api_key:
-            return None
+            return []
         try:
             resp = requests.get(
                 YOUTUBE_SEARCH_API,
@@ -314,7 +314,7 @@ class SmartBRollAgent:
                     "q": f"{title} crypto news",
                     "part": "snippet",
                     "type": "video",
-                    "maxResults": 1,
+                    "maxResults": 5,
                     "videoDuration": "short",
                     "order": "relevance",
                 },
@@ -322,29 +322,25 @@ class SmartBRollAgent:
             )
             resp.raise_for_status()
             items = resp.json().get("items", [])
-            if items:
-                video_id = items[0]["id"]["videoId"]
-                snippet_title = items[0]["snippet"]["title"]
-                logger.info(f"YouTube API found: [{video_id}] {snippet_title}")
-                return video_id
+            return [(item["id"]["videoId"], item["snippet"]["title"]) for item in items]
         except Exception as e:
             logger.warning(f"YouTube API search failed: {e}")
-        return None
+        return []
 
     def _youtube_search(self, title: str) -> tuple[Optional[str], Optional[str]]:
-        # Try API search first to get exact video ID, then download by ID via binary
-        video_id = self._youtube_api_search(title)
-        if video_id:
+        # Try each API result in sequence until one downloads successfully
+        candidates = self._youtube_api_search(title)
+        outtmpl = str(self.output_dir / "source_video.%(ext)s")
+        for video_id, snippet_title in candidates:
             url = f"https://www.youtube.com/watch?v={video_id}"
-            logger.info(f"Downloading YouTube video by ID: {video_id}")
-            outtmpl = str(self.output_dir / "source_video.%(ext)s")
+            logger.info(f"Trying YouTube [{video_id}] {snippet_title}")
             if self._ydl_bin_download(url, outtmpl, write_subs=True):
                 video_path = next(self.output_dir.glob("source_video.mp4"), None) or next(self.output_dir.glob("source_video.*"), None)
                 subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
                 if video_path and video_path.stat().st_size > 10_000:
-                    logger.info("YouTube video downloaded successfully")
+                    logger.info(f"YouTube downloaded: {video_id}")
                     return str(video_path), str(subs_path) if subs_path else None
-            time.sleep(3)
+            time.sleep(2)
 
         return None, None
 
