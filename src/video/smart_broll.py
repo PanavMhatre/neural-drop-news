@@ -99,29 +99,22 @@ class SmartBRollAgent:
             self.client = _OAI(api_key=oss_keys[0], base_url="https://integrate.api.nvidia.com/v1")
 
     def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
-        """Try multiple YouTube player clients in sequence — different clients have different
-        bot-detection profiles on datacenter IPs. Falls back through: tv_embedded → android_vr → mweb."""
+        """android,web_creator client order bypasses YouTube's datacenter IP bot-check
+        without cookies. yt-dlp tries each in sequence and uses the first valid stream."""
         sub_flags = ["--write-subs", "--write-auto-subs", "--sub-langs", "en", "--sub-format", "vtt"] if write_subs else []
-        base = [
-            "python", "-m", "yt_dlp",
+        cmd = [
+            "yt-dlp",
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
             "-o", outtmpl,
             "--no-playlist",
+            "--extractor-args", "youtube:player_client=android,web_creator",
             "--socket-timeout", "15",
-        ]
-        clients = ["tv_embedded", "android_vr", "mweb", "android"]
-        for client in clients:
-            cmd = base + ["--extractor-args", f"youtube:player_client={client}"] + sub_flags + [url]
-            logger.info(f"yt-dlp [{client}]: {url}")
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                logger.info(f"yt-dlp [{client}] succeeded")
-                return True
-            if "Sign in to confirm" not in result.stderr and "not a bot" not in result.stderr:
-                # Non-auth failure (unsupported URL, network) — no point trying other clients
-                break
-            logger.warning(f"yt-dlp [{client}] bot-check failed, trying next client")
-        return False
+        ] + sub_flags + [url]
+        logger.info(f"yt-dlp cmd: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.warning(f"yt-dlp failed: {result.stderr[-300:] if result.stderr else 'no stderr'}")
+        return result.returncode == 0
 
     def acquire_media(
         self, script: GeneratedScript, story: RawStory, accent_color: tuple
