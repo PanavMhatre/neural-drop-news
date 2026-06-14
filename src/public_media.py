@@ -67,44 +67,19 @@ def _ensure_github_branch(repo: str, branch: str) -> None:
     if response.status_code not in (404, 409):
         raise PublicMediaError(f"GitHub branch check failed with HTTP {response.status_code}")
 
-    commit_response = requests.post(
-        f"{GITHUB_API_URL}/repos/{repo}/git/blobs",
+    # Use Contents API — works on empty repos where the git data API returns 409.
+    init_response = requests.put(
+        f"{GITHUB_API_URL}/repos/{repo}/contents/README.md",
         headers=headers,
-        json={"content": "# NeuralDropBits storage\n", "encoding": "utf-8"},
+        json={
+            "message": "Initialize storage",
+            "content": base64.b64encode(b"# NeuralDropBits storage\n").decode(),
+            "branch": branch,
+        },
         timeout=30,
     )
-    if commit_response.status_code >= 400:
-        raise PublicMediaError(f"GitHub blob creation failed with HTTP {commit_response.status_code}")
-    blob_sha = commit_response.json()["sha"]
-
-    tree_response = requests.post(
-        f"{GITHUB_API_URL}/repos/{repo}/git/trees",
-        headers=headers,
-        json={"tree": [{"path": "README.md", "mode": "100644", "type": "blob", "sha": blob_sha}]},
-        timeout=30,
-    )
-    if tree_response.status_code >= 400:
-        raise PublicMediaError(f"GitHub tree creation failed with HTTP {tree_response.status_code}")
-    tree_sha = tree_response.json()["sha"]
-
-    new_commit_response = requests.post(
-        f"{GITHUB_API_URL}/repos/{repo}/git/commits",
-        headers=headers,
-        json={"message": "Initialize storage", "tree": tree_sha},
-        timeout=30,
-    )
-    if new_commit_response.status_code >= 400:
-        raise PublicMediaError(f"GitHub commit creation failed with HTTP {new_commit_response.status_code}")
-    commit_sha = new_commit_response.json()["sha"]
-
-    ref_response = requests.post(
-        f"{GITHUB_API_URL}/repos/{repo}/git/refs",
-        headers=headers,
-        json={"ref": f"refs/heads/{branch}", "sha": commit_sha},
-        timeout=30,
-    )
-    if ref_response.status_code >= 400:
-        raise PublicMediaError(f"GitHub branch creation failed with HTTP {ref_response.status_code}")
+    if init_response.status_code not in (200, 201):
+        raise PublicMediaError(f"GitHub storage init failed with HTTP {init_response.status_code}")
 
 
 def upload_to_discord(path: Path) -> str:
