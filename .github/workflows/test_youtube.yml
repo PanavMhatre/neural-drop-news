@@ -15,86 +15,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install yt-dlp binary, ffmpeg, and Deno
+      - name: Install yt-dlp binary and ffmpeg
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg unzip
-          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
-            -o /usr/local/bin/yt-dlp
-          sudo chmod +x /usr/local/bin/yt-dlp
-          curl -fsSL https://deno.land/install.sh | sh
-          echo "$HOME/.deno/bin" >> $GITHUB_PATH
+          sudo apt-get install -y ffmpeg
+          sudo curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+            -o /usr/local/bin/yt-dlp && sudo chmod +x /usr/local/bin/yt-dlp
           yt-dlp --version
+          mkdir -p ~/.config/yt-dlp
+          cat > ~/.config/yt-dlp/config << 'YTDLP_EOF'
+--no-check-certificate
+--socket-timeout 15
+--retries 3
+YTDLP_EOF
+          echo "Config written:"
+          cat ~/.config/yt-dlp/config
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Python deps and yt-dlp PO token provider
-        run: |
-          pip install requests yt-dlp bgutil-ytdlp-pot-provider
-          # Clone bgutil server scripts (not bundled in pip package)
-          git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git \
-            ~/bgutil-ytdlp-pot-provider
-          ls ~/bgutil-ytdlp-pot-provider/server/src/
-
-      - name: Start bgutil PO token HTTP server
-        run: |
-          cd ~/bgutil-ytdlp-pot-provider/server
-          deno install
-          deno cache src/main.ts src/generate_once.ts
-          # Start the HTTP server in the background (listens on :4416)
-          nohup deno run --allow-all src/main.ts > /tmp/bgutil-server.log 2>&1 &
-          echo "bgutil server PID: $!"
-          # Wait until it's accepting connections
-          for i in $(seq 1 20); do
-            if curl -sf http://localhost:4416/ping > /dev/null 2>&1; then
-              echo "bgutil server ready after ${i}s"
-              break
-            fi
-            sleep 1
-          done
-          curl -s "http://localhost:4416/get_po_token?videoId=dQw4w9WgXcQ" || echo "token fetch attempted"
-
-      - name: Write yt-dlp cookies
-        env:
-          YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
-        run: |
-          mkdir -p ~/.config/yt-dlp
-          if [ -n "$YTDLP_COOKIES" ]; then
-            echo "$YTDLP_COOKIES" > ~/.config/yt-dlp/cookies.txt
-            echo "Cookies written ($(wc -l < ~/.config/yt-dlp/cookies.txt) lines)."
-          else
-            echo "ERROR: No YTDLP_COOKIES secret"
-            exit 1
-          fi
-
-      - name: Write yt-dlp config
-        run: |
-          python3 - << 'PYEOF'
-          import os
-          from pathlib import Path
-
-          config_dir = Path.home() / ".config/yt-dlp"
-          config_dir.mkdir(parents=True, exist_ok=True)
-          cookies = config_dir / "cookies.txt"
-
-          lines = [
-              "--sleep-requests 2",
-              "--sleep-interval 3",
-              "--max-sleep-interval 8",
-              "--retries 5",
-              "--remote-components ejs:github",
-          ]
-          if cookies.exists():
-              lines.append(f"--cookies {cookies}")
-              print(f"Cookies found: {cookies} ({cookies.stat().st_size} bytes)")
-
-          config_path = config_dir / "config"
-          config_path.write_text("\n".join(lines) + "\n")
-          print(f"Config written to {config_path}:")
-          print(config_path.read_text())
-          PYEOF
+      - name: Install Python deps
+        run: pip install requests
 
       - name: Test YouTube download
         env:

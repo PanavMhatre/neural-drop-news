@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Diagnostic: YouTube API v3 search → yt-dlp binary download.
-The yt-dlp binary reads ~/.config/yt-dlp/config (with --cookies) automatically.
-No cookiefile or extractor_args needed in code — binary handles it.
+Diagnostic: test YouTube download from GitHub Actions using ios,android,web_creator
+client chain via yt-dlp binary. No cookies needed.
 """
 import os
 import subprocess
@@ -15,54 +14,44 @@ API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 OUTPUT_DIR = Path("/tmp/yt_test")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-COOKIE_FILE = Path.home() / ".config/yt-dlp/cookies.txt"
 CONFIG_FILE = Path.home() / ".config/yt-dlp/config"
-
-print(f"Cookie file: {COOKIE_FILE} — exists={COOKIE_FILE.exists()}, lines={len(COOKIE_FILE.read_text().splitlines()) if COOKIE_FILE.exists() else 0}")
 print(f"Config file: {CONFIG_FILE} — exists={CONFIG_FILE.exists()}")
 if CONFIG_FILE.exists():
     print(f"Config contents:\n{CONFIG_FILE.read_text()}")
-if COOKIE_FILE.exists():
-    yt_lines = [l for l in COOKIE_FILE.read_text().splitlines() if "youtube" in l.lower()]
-    print(f"YouTube cookie entries: {len(yt_lines)}")
 print()
 
 QUERIES = [
-    "Bitcoin price drop crypto news",
-    "BlackRock Bitcoin ETF news",
+    "Bitcoin price crypto news 2024",
+    "Ethereum blockchain technology explained",
+    "crypto market update today",
 ]
 
 
-def search_youtube(query: str) -> str | None:
+def search_youtube(query: str, max_results: int = 5) -> list[tuple[str, str]]:
     if not API_KEY:
-        print("  No YOUTUBE_API_KEY — skipping API search")
-        return None
+        print("  No YOUTUBE_API_KEY")
+        return []
     resp = requests.get(
         "https://www.googleapis.com/youtube/v3/search",
         params={"key": API_KEY, "q": query, "part": "snippet", "type": "video",
-                "maxResults": 1, "videoDuration": "short", "order": "relevance"},
+                "maxResults": max_results, "videoDuration": "short", "order": "relevance"},
         timeout=15,
     )
     resp.raise_for_status()
     items = resp.json().get("items", [])
-    if items:
-        vid = items[0]["id"]["videoId"]
-        title = items[0]["snippet"]["title"]
-        print(f"  API found: [{vid}] {title}")
-        return vid
-    return None
+    return [(item["id"]["videoId"], item["snippet"]["title"]) for item in items]
 
 
 def download_video(video_id: str, label: str) -> bool:
     url = f"https://www.youtube.com/watch?v={video_id}"
     out_tmpl = str(OUTPUT_DIR / f"{label}.%(ext)s")
-    # Use python -m yt_dlp so the bgutil PO token plugin (installed in site-packages) is loaded.
-    # python -m yt_dlp still reads ~/.config/yt-dlp/config automatically.
     cmd = [
-        "python", "-m", "yt_dlp",
+        "yt-dlp",
         "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
         "-o", out_tmpl,
         "--no-playlist",
+        "--extractor-args", "youtube:player_client=ios,android,web_creator",
+        "--socket-timeout", "15",
         "--verbose",
         url,
     ]
@@ -84,13 +73,20 @@ def download_video(video_id: str, label: str) -> bool:
 success = 0
 for i, query in enumerate(QUERIES):
     print(f"--- {query} ---")
-    video_id = search_youtube(query)
-    if not video_id:
-        print("  ✗ No video ID from API")
+    candidates = search_youtube(query, max_results=5)
+    if not candidates:
+        print("  ✗ No candidates from API")
         continue
-    if download_video(video_id, f"clip_{i}"):
-        success += 1
+    got_one = False
+    for video_id, title in candidates:
+        print(f"  Trying [{video_id}] {title}")
+        if download_video(video_id, f"clip_{i}"):
+            success += 1
+            got_one = True
+            break
+    if not got_one:
+        print(f"  ✗ All {len(candidates)} candidates failed")
     print()
 
-print(f"Result: {success}/{len(QUERIES)} succeeded")
+print(f"Result: {success}/{len(QUERIES)} queries succeeded")
 sys.exit(0 if success > 0 else 1)
