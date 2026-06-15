@@ -104,23 +104,82 @@ def upload_to_discord(path: Path) -> str:
     return attachments[0]["url"]
 
 
+GITHUB_RELEASE_TAG = "media-store"
+GITHUB_CONTENTS_LIMIT = 50 * 1024 * 1024  # GitHub Contents API hard limit is 100 MB; use 50 MB to be safe
+
+
+def _get_or_create_release(repo: str, headers: dict) -> dict:
+    """Return the persistent media-store release, creating it if needed."""
+    resp = requests.get(
+        f"{GITHUB_API_URL}/repos/{repo}/releases/tags/{GITHUB_RELEASE_TAG}",
+        headers=headers,
+        timeout=30,
+    )
+    if resp.status_code == 200:
+        return resp.json()
+    release_resp = requests.post(
+        f"{GITHUB_API_URL}/repos/{repo}/releases",
+        headers=headers,
+        json={
+            "tag_name": GITHUB_RELEASE_TAG,
+            "name": "Media Store",
+            "body": "Automated media assets",
+            "draft": False,
+            "prerelease": False,
+        },
+        timeout=30,
+    )
+    if release_resp.status_code >= 400:
+        raise PublicMediaError(f"GitHub release creation failed with HTTP {release_resp.status_code}")
+    return release_resp.json()
+
+
+def _upload_release_asset(repo: str, headers: dict, release: dict, path: Path, asset_name: str) -> str:
+    """Upload a file as a release asset, deleting any existing asset with the same name first."""
+    for existing in release.get("assets", []):
+        if existing["name"] == asset_name:
+            requests.delete(
+                f"{GITHUB_API_URL}/repos/{repo}/releases/assets/{existing['id']}",
+                headers=headers,
+                timeout=30,
+            )
+            break
+
+    upload_url = release["upload_url"].split("{")[0]
+    upload_headers = {**headers, "Content-Type": "application/octet-stream"}
+    with path.open("rb") as fh:
+        resp = requests.post(
+            upload_url,
+            headers=upload_headers,
+            params={"name": asset_name},
+            data=fh,
+            timeout=300,
+        )
+    if resp.status_code >= 400:
+        raise PublicMediaError(f"GitHub release asset upload failed with HTTP {resp.status_code}")
+    return resp.json()["browser_download_url"]
+
+
 def upload_to_github_storage(path: Path, package_id: str) -> str:
     repo = os.getenv("STORAGE_REPO") or os.getenv("GITHUB_STORAGE_REPO", "panavm12-jpg/storage")
     branch = os.getenv("STORAGE_BRANCH") or os.getenv("GITHUB_STORAGE_BRANCH", "main")
     prefix = os.getenv("GITHUB_STORAGE_PREFIX", "news")
-    _ensure_github_branch(repo, branch)
+    headers = _github_headers()
 
+    # Large files go to a GitHub Release asset (no size limit issues)
+    if path.stat().st_size > GITHUB_CONTENTS_LIMIT:
+        _ensure_github_branch(repo, branch)
+        release = _get_or_create_release(repo, headers)
+        asset_name = f"{package_id}__{path.name}"
+        return _upload_release_asset(repo, headers, release, path, asset_name)
+
+    # Small files go via Contents API
+    _ensure_github_branch(repo, branch)
     repo_path = f"{prefix.strip('/')}/{package_id}/{path.name}"
     encoded_path = quote(repo_path)
     content_url = f"{GITHUB_API_URL}/repos/{repo}/contents/{encoded_path}"
-    headers = _github_headers()
 
-    existing_response = requests.get(
-        content_url,
-        headers=headers,
-        params={"ref": branch},
-        timeout=30,
-    )
+    existing_response = requests.get(content_url, headers=headers, params={"ref": branch}, timeout=30)
     existing_sha = existing_response.json().get("sha") if existing_response.status_code == 200 else None
 
     payload = {

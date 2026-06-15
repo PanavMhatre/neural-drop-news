@@ -208,7 +208,8 @@ class BufferClient:
           createPost(input: {{
             text: {json.dumps(text)}
             channelId: {json.dumps(channel["id"])}
-            schedulingType: scheduled
+            mode: SHARE
+            schedulingType: SCHEDULED
             dueAt: {json.dumps(due_at_utc)}
             assets: [{{ video: {{ {video_asset} }} }}]
             {extra_input}
