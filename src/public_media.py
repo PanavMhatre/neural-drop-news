@@ -198,9 +198,7 @@ def upload_to_github_storage(path: Path, package_id: str) -> str:
 
 
 def upload_public_asset(path: Path, package_id: str) -> tuple[str, str]:
-    if path.stat().st_size > DISCORD_LIMIT_BYTES:
-        return upload_to_github_storage(path, package_id), "github"
-    return upload_to_discord(path), "discord"
+    return upload_to_github_storage(path, package_id), "github"
 
 
 def public_assets_for_package(package_dir: Path) -> dict:
