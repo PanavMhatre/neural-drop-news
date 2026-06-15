@@ -5,7 +5,6 @@ import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote
 
 import requests
 
@@ -105,7 +104,6 @@ def upload_to_discord(path: Path) -> str:
 
 
 GITHUB_RELEASE_TAG = "media-store"
-GITHUB_CONTENTS_LIMIT = 50 * 1024 * 1024  # GitHub Contents API hard limit is 100 MB; use 50 MB to be safe
 
 
 def _get_or_create_release(repo: str, headers: dict) -> dict:
@@ -163,38 +161,14 @@ def _upload_release_asset(repo: str, headers: dict, release: dict, path: Path, a
 def upload_to_github_storage(path: Path, package_id: str) -> str:
     repo = os.getenv("STORAGE_REPO") or os.getenv("GITHUB_STORAGE_REPO", "panavm12-jpg/storage")
     branch = os.getenv("STORAGE_BRANCH") or os.getenv("GITHUB_STORAGE_BRANCH", "main")
-    prefix = os.getenv("GITHUB_STORAGE_PREFIX", "news")
     headers = _github_headers()
 
-    # Large files go to a GitHub Release asset (no size limit issues)
-    if path.stat().st_size > GITHUB_CONTENTS_LIMIT:
-        _ensure_github_branch(repo, branch)
-        release = _get_or_create_release(repo, headers)
-        asset_name = f"{package_id}__{path.name}"
-        return _upload_release_asset(repo, headers, release, path, asset_name)
-
-    # Small files go via Contents API
+    # Always use a GitHub Release asset — the Contents API rejects files
+    # well below its documented 100 MB limit in practice.
     _ensure_github_branch(repo, branch)
-    repo_path = f"{prefix.strip('/')}/{package_id}/{path.name}"
-    encoded_path = quote(repo_path)
-    content_url = f"{GITHUB_API_URL}/repos/{repo}/contents/{encoded_path}"
-
-    existing_response = requests.get(content_url, headers=headers, params={"ref": branch}, timeout=30)
-    existing_sha = existing_response.json().get("sha") if existing_response.status_code == 200 else None
-
-    payload = {
-        "message": f"Add {package_id} {path.name}",
-        "content": base64.b64encode(path.read_bytes()).decode("ascii"),
-        "branch": branch,
-    }
-    if existing_sha:
-        payload["sha"] = existing_sha
-
-    response = requests.put(content_url, headers=headers, json=payload, timeout=180)
-    if response.status_code >= 400:
-        raise PublicMediaError(f"GitHub storage upload failed with HTTP {response.status_code}: {response.text[:200]}")
-
-    return f"https://raw.githubusercontent.com/{repo}/{branch}/{quote(repo_path)}"
+    release = _get_or_create_release(repo, headers)
+    asset_name = f"{package_id}__{path.name}"
+    return _upload_release_asset(repo, headers, release, path, asset_name)
 
 
 def upload_public_asset(path: Path, package_id: str) -> tuple[str, str]:
