@@ -1,0 +1,50 @@
+name: Resume Upload to Buffer
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Run ID whose artifact should be uploaded/scheduled
+        required: true
+      artifact_name:
+        description: Artifact name to download
+        required: true
+
+jobs:
+  resume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download artifact from prior run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p resume_input
+          gh run download "${{ github.event.inputs.run_id }}" \
+            --repo ${{ github.repository }} \
+            --name "${{ github.event.inputs.artifact_name }}" \
+            --dir resume_input
+
+      - name: Upload media and schedule to Buffer
+        env:
+          BUFFER_API_KEY:      ${{ secrets.BUFFER_API_KEY }}
+          BUFFER_CHANNEL_IDS:  ${{ secrets.BUFFER_CHANNEL_IDS }}
+          STORAGE_REPO:        panavm12-jpg/storage
+          STORAGE_BRANCH:      main
+          STORAGE_TOKEN:       ${{ secrets.STORAGE_TOKEN }}
+          GITHUB_TOKEN:        ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/resume_upload.py resume_input
