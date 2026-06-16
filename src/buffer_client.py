@@ -137,6 +137,32 @@ class BufferClient:
         )
         return data.get("channels", [])
 
+    def find_existing_posts_for_video(self, video_url: str) -> list[dict]:
+        """Check Buffer itself (not just local state) for posts already scheduled with this video.
+
+        This is the authoritative dedup check: local manifest files can desync across
+        machines/CI runs (a package downloaded twice into separate filesystems has no way
+        to know the other copy already scheduled it), but Buffer's own post list cannot.
+        """
+        matches: list[dict] = []
+        for organization in self.list_organizations():
+            query = f"""
+            {{
+              posts(input: {{
+                organizationId: {json.dumps(organization["id"])}
+                filter: {{ status: [scheduled, sending, sent] }}
+              }}, first: 50) {{
+                edges {{ node {{ id dueAt channelId assets {{ mimeType source }} }} }}
+              }}
+            }}
+            """
+            data = self._graphql(query)
+            for edge in data.get("posts", {}).get("edges", []):
+                node = edge["node"]
+                if any(a.get("mimeType") == "video/mp4" and a.get("source") == video_url for a in node.get("assets", [])):
+                    matches.append(node)
+        return matches
+
     def resolve_target_channels(self) -> list[dict]:
         matches: list[dict] = []
         configured_ids = self._configured_channel_ids()

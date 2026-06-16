@@ -201,3 +201,21 @@ def public_assets_for_package(package_dir: Path) -> dict:
 
     _save_json(manifest_path, manifest)
     return manifest
+
+
+def already_scheduled_to_buffer(package_dir: Path) -> dict | None:
+    """Return the prior Buffer scheduling record for this package, or None if never scheduled."""
+    manifest = _load_json(package_dir / "public_media.json")
+    return manifest.get("buffer")
+
+
+def mark_scheduled_to_buffer(package_dir: Path, due_at: str, post_ids: list[str]) -> None:
+    """Record that this package has been scheduled to Buffer, so a re-run won't duplicate it."""
+    manifest_path = package_dir / "public_media.json"
+    manifest = _load_json(manifest_path)
+    manifest["buffer"] = {
+        "scheduled_at": datetime.now(timezone.utc).isoformat(),
+        "due_at": due_at,
+        "post_ids": post_ids,
+    }
+    _save_json(manifest_path, manifest)
