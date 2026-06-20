@@ -63,7 +63,7 @@ class RotatingKeyClient:
                 reason = "429 rate limit" if isinstance(exc, RateLimitError) else "timeout/connection"
                 logger.warning(f"Key {key_short}... hit {reason} — rotating to next key")
                 time.sleep(0.5)
-        raise APITimeoutError("All API keys exhausted (all timed out or rate limited)", request=None)
+        raise RuntimeError("All API keys exhausted (all returned 429, timeout, or connection error)")
 
 T = TypeVar("T", bound=BaseModel)
 

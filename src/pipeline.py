@@ -120,7 +120,10 @@ class Pipeline:
             "llm_model": self._nvidia_model or self._groq_model or "openai/gpt-oss-120b",
         }
         self.script_generator = ScriptGenerator(
-            self._nvidia_client or self._groq_client or self.openai_client, scripts_config)
+            self._nvidia_client or self._groq_client or self.openai_client,
+            scripts_config,
+            fallback_client=self._groq_client,
+        )
 
         # Quality gate: Groq gpt-oss-120b (analytical, fast)
         quality_config = {

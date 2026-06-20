@@ -121,11 +121,13 @@ Respond with exactly one letter: A or B"""}],
 class ScriptGenerator:
     """Generates scripts using dual-model comparison: DeepSeek v4 Flash vs GLM-5.1, judge picks best."""
 
-    def __init__(self, client: OpenAI, config: dict):
+    def __init__(self, client: OpenAI, config: dict, fallback_client=None):
         self.client = client
+        self.fallback_client = fallback_client  # Groq — used when all NVIDIA keys are exhausted
         self.config = config
         self.channel_name = config.get("channel_name", "TechPulse Shorts")
         self.model = config.get("llm_model", "z-ai/glm-5.1")
+        self.fallback_model = "openai/gpt-oss-120b"
         self.temperature = config.get("llm_temperature", 0.8)
         self.target_words = (
             config.get("target_word_count_min", 80),
@@ -239,8 +241,12 @@ Generate the complete script with all required fields."""
             try:
                 result = llm_parse(self.client, self.model, messages, LLMScriptOutput, self.temperature)
             except Exception as e:
-                logger.error(f"Script generation failed: {e}")
-                raise
+                if self.fallback_client:
+                    logger.warning(f"Primary LLM failed ({e}) — falling back to Groq")
+                    result = llm_parse(self.fallback_client, self.fallback_model, messages, LLMScriptOutput, self.temperature)
+                else:
+                    logger.error(f"Script generation failed: {e}")
+                    raise
 
         return self._convert_output(result, structure.type)
 
