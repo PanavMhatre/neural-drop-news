@@ -5,19 +5,71 @@ NVIDIA NIM / Groq (json_object mode — they don't support json_schema structure
 import json
 import logging
 import re
+import time
 from typing import Type, TypeVar
 
-from openai import OpenAI
+import httpx
+from openai import OpenAI, RateLimitError
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+class RotatingKeyClient:
+    """Wraps multiple API keys for the same provider. On 429, rotates to the next key.
+
+    Drop-in replacement for a bare OpenAI client anywhere llm_parse is called.
+    Exposes .base_url and delegates attribute access so _is_json_object_provider works.
+    """
+
+    def __init__(self, keys: list[str], base_url: str, timeout: float = 60.0):
+        self._keys = keys
+        self._base_url = base_url
+        self._timeout = timeout
+        self._idx = 0
+        self._clients = [
+            OpenAI(api_key=k, base_url=base_url,
+                   http_client=httpx.Client(timeout=timeout),
+                   max_retries=0)  # we handle retries ourselves
+            for k in keys
+        ]
+
+    @property
+    def base_url(self):
+        return self._base_url
+
+    def _current(self) -> OpenAI:
+        return self._clients[self._idx % len(self._clients)]
+
+    def __getattr__(self, name):
+        return getattr(self._current(), name)
+
+    def call_with_rotation(self, fn_name: str, **kwargs):
+        """Try each key in sequence on 429, with a short backoff between rotations."""
+        start = self._idx
+        for attempt in range(len(self._clients)):
+            client = self._clients[(start + attempt) % len(self._clients)]
+            try:
+                fn = getattr(client, fn_name) if hasattr(client, fn_name) else None
+                # Support nested attr like "chat.completions.create"
+                obj = client
+                for part in fn_name.split("."):
+                    obj = getattr(obj, part)
+                result = obj(**kwargs)
+                self._idx = (start + attempt) % len(self._clients)
+                return result
+            except RateLimitError:
+                key_short = self._keys[(start + attempt) % len(self._keys)][:8]
+                logger.warning(f"NVIDIA key {key_short}... hit 429 — rotating to next key")
+                time.sleep(0.5)
+        raise RateLimitError("All API keys exhausted (all returned 429)", response=None, body=None)
 
 T = TypeVar("T", bound=BaseModel)
 
 _JSON_OBJECT_PROVIDERS = ("groq.com", "integrate.api.nvidia.com")
 
 
-def _is_json_object_provider(client: OpenAI) -> bool:
+def _is_json_object_provider(client) -> bool:
     base = str(getattr(client, "base_url", "")).lower()
     return any(p in base for p in _JSON_OBJECT_PROVIDERS)
 
@@ -93,7 +145,7 @@ def _repair_visual_plan(data: dict) -> dict:
 
 
 def llm_parse(
-    client: OpenAI,
+    client,
     model: str,
     messages: list[dict],
     response_model: Type[T],
@@ -109,13 +161,17 @@ def llm_parse(
         msgs = messages[:-1] + [
             {**messages[-1], "content": messages[-1]["content"] + hint}
         ]
-        completion = client.chat.completions.create(
+        kwargs = dict(
             model=model,
             messages=msgs,
             response_format={"type": "json_object"},
             temperature=temperature,
             max_tokens=max_tokens,
         )
+        if isinstance(client, RotatingKeyClient):
+            completion = client.call_with_rotation("chat.completions.create", **kwargs)
+        else:
+            completion = client.chat.completions.create(**kwargs)
         raw = completion.choices[0].message.content
         try:
             data = json.loads(raw)

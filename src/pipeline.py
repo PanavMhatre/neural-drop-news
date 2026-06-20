@@ -162,7 +162,9 @@ class Pipeline:
         logger.info("Pipeline initialized")
 
     def _build_nvidia_client(self):
-        """NVIDIA NIM — GLM-5.1 for script writing (fast ~6s, high quality)."""
+        """NVIDIA NIM — GLM-5.1 for script writing. Uses RotatingKeyClient to
+        automatically cycle through all available keys when one hits 429."""
+        from src.utils.llm import RotatingKeyClient
         keys = []
         # GLM dedicated keys first, then main NVIDIA keys
         for prefix in ("NVIDIA_GLM_KEY", "NVIDIA_API_KEY"):
@@ -176,15 +178,14 @@ class Pipeline:
                 keys.append(k)
         if not keys:
             return None, None, [], 0
-        import httpx
-        client = OpenAI(api_key=keys[0], base_url="https://integrate.api.nvidia.com/v1",
-                        http_client=httpx.Client(timeout=60.0))
+        client = RotatingKeyClient(keys, base_url="https://integrate.api.nvidia.com/v1")
         model = "z-ai/glm-5.1"
-        logger.info(f"NVIDIA NIM enabled: {len(keys)} key(s), model={model}")
+        logger.info(f"NVIDIA NIM enabled: {len(keys)} key(s) with rotation, model={model}")
         return client, model, keys, 0
 
     def _build_groq_client(self):
         """Groq — gpt-oss-120b for scoring/quality/metadata/b-roll (fast, analytical)."""
+        from src.utils.llm import RotatingKeyClient
         keys = []
         for var in ("GROQ_API_KEY_1", "GROQ_API_KEY_2", "GROQ_API_KEY_3", "GROQ_API_KEY"):
             k = os.getenv(var, "")
@@ -192,9 +193,9 @@ class Pipeline:
                 keys.append(k)
         if not keys:
             return None, None, [], 0
-        client = OpenAI(api_key=keys[0], base_url="https://api.groq.com/openai/v1")
+        client = RotatingKeyClient(keys, base_url="https://api.groq.com/openai/v1")
         model = "openai/gpt-oss-120b"
-        logger.info(f"Groq enabled: {len(keys)} key(s), model={model}")
+        logger.info(f"Groq enabled: {len(keys)} key(s) with rotation, model={model}")
         return client, model, keys, 0
 
     def _load_config(self, config_path: str) -> dict:
