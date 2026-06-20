@@ -352,13 +352,28 @@ class SmartBRollAgent:
 
         return self._youtube_search(title)
 
+    @staticmethod
+    def _trim_title_for_search(title: str) -> str:
+        """Reduce a long article title to 4-5 key terms for YouTube search."""
+        import re as _re
+        # Strip numbers (prices, percentages) and very common filler words
+        stop = {"the", "a", "an", "in", "on", "at", "to", "of", "for", "and", "or",
+                "is", "are", "was", "were", "has", "have", "with", "from", "by",
+                "after", "amid", "amid", "above", "below", "over", "under",
+                "remains", "remain", "following", "continues", "continue",
+                "report", "reports", "says", "amid", "despite", "per", "via"}
+        words = _re.sub(r'[^a-zA-Z\s]', ' ', title).split()
+        key_words = [w for w in words if w.lower() not in stop and len(w) > 2]
+        return " ".join(key_words[:5])
+
     def _youtube_api_search(self, title: str) -> list[tuple[str, str]]:
         """Search YouTube Data API within weighted crypto channels — 3 channels × 2 results = 6 candidates."""
         if not self.youtube_api_key:
             return []
+        search_title = self._trim_title_for_search(title)
         candidates: list[tuple[str, str]] = []
         for channel_alias in weighted_sample(3):
-            query = f"{title} {channel_alias}"
+            query = f"{search_title} {channel_alias}"
             try:
                 resp = requests.get(
                     YOUTUBE_SEARCH_API,
