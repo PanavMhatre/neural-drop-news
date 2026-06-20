@@ -40,6 +40,7 @@ jobs:
 
       - name: Upload media and schedule to Buffer
         env:
+          WEBSHARE_PROXIES:    ${{ secrets.WEBSHARE_PROXIES }}
           BUFFER_API_KEY:      ${{ secrets.BUFFER_API_KEY }}
           BUFFER_CHANNEL_IDS:  ${{ secrets.BUFFER_CHANNEL_IDS }}
           STORAGE_REPO:        panavm12-jpg/storage

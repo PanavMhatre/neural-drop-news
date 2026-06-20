@@ -490,6 +490,12 @@ class Pipeline:
             media_paths, broll_source, yt_audio_path = f_broll.result()
             voice_config = f_tts.result()
 
+        # When YouTube b-roll downloaded successfully, use its audio instead of TTS.
+        # This gives authentic news audio and avoids the synthetic voice entirely.
+        if yt_audio_path and Path(yt_audio_path).exists():
+            logger.info(f"Using YouTube audio instead of TTS: {yt_audio_path}")
+            audio_path = yt_audio_path
+
         # Step 6: Get audio duration
         audio_duration = self._get_audio_duration(audio_path)
         if audio_duration is None:

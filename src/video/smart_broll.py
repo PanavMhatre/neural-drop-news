@@ -99,23 +99,67 @@ class SmartBRollAgent:
             from openai import OpenAI as _OAI
             self.client = _OAI(api_key=oss_keys[0], base_url="https://integrate.api.nvidia.com/v1")
 
-    def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
-        """ios,android,web_creator client order bypasses YouTube's datacenter IP bot-check
-        without cookies. yt-dlp tries each in sequence and uses the first valid stream."""
+    def _proxy_list(self) -> list[str]:
+        """Parse WEBSHARE_PROXIES (ip:port:user:pass,...) into yt-dlp proxy URLs."""
+        raw = os.getenv("WEBSHARE_PROXIES", "").strip()
+        if not raw:
+            return []
+        proxies = []
+        for entry in raw.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            parts = entry.split(":")
+            if len(parts) == 4:
+                ip, port, user, password = parts
+                proxies.append(f"http://{user}:{password}@{ip}:{port}")
+            elif len(parts) == 2:
+                # ip:port only — use shared creds from env
+                user = os.getenv("WEBSHARE_USER", "")
+                password = os.getenv("WEBSHARE_PASS", "")
+                if user and password:
+                    proxies.append(f"http://{user}:{password}@{entry}")
+        return proxies
+
+    def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False,
+                           proxy_url: str | None = None) -> bool:
+        """Download via yt-dlp, routing through a residential proxy when available.
+
+        Proxy routes around GitHub Actions' Azure IP block on YouTube.
+        ios,android,web_creator client order still helps with JS challenge bypass.
+        """
         sub_flags = ["--write-subs", "--write-auto-subs", "--sub-langs", "en", "--sub-format", "vtt"] if write_subs else []
+        proxy_flags = ["--proxy", proxy_url] if proxy_url else []
         cmd = [
             "yt-dlp",
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
             "-o", outtmpl,
             "--no-playlist",
             "--extractor-args", "youtube:player_client=ios,android,web_creator",
-            "--socket-timeout", "15",
-        ] + sub_flags + [url]
+            "--socket-timeout", "30",
+        ] + proxy_flags + sub_flags + [url]
         logger.info(f"yt-dlp cmd: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            logger.warning(f"yt-dlp failed: {result.stderr[-300:] if result.stderr else 'no stderr'}")
+            logger.warning(f"yt-dlp failed: {result.stderr[-400:] if result.stderr else 'no stderr'}")
         return result.returncode == 0
+
+    def _ydl_with_proxy_rotation(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
+        """Try download with each proxy in random order, fall back to direct."""
+        proxies = self._proxy_list()
+        random.shuffle(proxies)
+        # Try proxies first
+        for proxy_url in proxies:
+            ip = proxy_url.split("@")[-1]
+            logger.info(f"Trying proxy {ip}...")
+            if self._ydl_bin_download(url, outtmpl, write_subs=write_subs, proxy_url=proxy_url):
+                logger.info(f"Proxy succeeded: {ip}")
+                return True
+            logger.warning(f"Proxy failed: {ip}")
+        # Fall back to direct (works locally, fails on GH Actions without proxy)
+        if proxies:
+            logger.info("All proxies failed — trying direct connection")
+        return self._ydl_bin_download(url, outtmpl, write_subs=write_subs)
 
     def acquire_media(
         self, script: GeneratedScript, story: RawStory, accent_color: tuple
@@ -135,10 +179,14 @@ class SmartBRollAgent:
 
         # ── Step 1: Try YouTube first (real news footage) ────────────────────
         logger.info("Trying YouTube for b-roll...")
-        yt_video_path, _ = self._download_youtube(story.url, story.title)
+        yt_video_path, yt_subs_path = self._download_youtube(story.url, story.title)
         if yt_video_path and Path(yt_video_path).exists() and Path(yt_video_path).stat().st_size > 50_000:
             logger.info(f"YouTube b-roll acquired: {yt_video_path}")
             youtube_succeeded = True
+            # Extract original audio so pipeline can use it instead of TTS
+            yt_audio_path = self._extract_audio(yt_video_path)
+            if yt_audio_path:
+                logger.info(f"YouTube audio extracted for non-TTS mode: {yt_audio_path}")
             # Use the YouTube clip for every section (compositor trims to section duration)
             for cue in script.visual_plan:
                 media_paths[cue.section] = yt_video_path
@@ -294,7 +342,7 @@ class SmartBRollAgent:
 
         logger.info(f"Trying article URL for video: {url}")
         outtmpl = str(self.output_dir / "source_video.%(ext)s")
-        if self._ydl_bin_download(url, outtmpl, write_subs=True):
+        if self._ydl_with_proxy_rotation(url, outtmpl, write_subs=True):
             video_path = next(self.output_dir.glob("source_video.mp4"), None) or next(self.output_dir.glob("source_video.*"), None)
             subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
             if video_path and video_path.exists():
@@ -344,7 +392,7 @@ class SmartBRollAgent:
         for video_id, snippet_title in candidates:
             url = f"https://www.youtube.com/watch?v={video_id}"
             logger.info(f"Trying YouTube [{video_id}] {snippet_title}")
-            if self._ydl_bin_download(url, outtmpl, write_subs=True):
+            if self._ydl_with_proxy_rotation(url, outtmpl, write_subs=True):
                 video_path = next(self.output_dir.glob("source_video.mp4"), None) or next(self.output_dir.glob("source_video.*"), None)
                 subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
                 if video_path and video_path.stat().st_size > 10_000:
