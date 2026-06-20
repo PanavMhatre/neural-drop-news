@@ -9,7 +9,7 @@ import time
 from typing import Type, TypeVar
 
 import httpx
-from openai import OpenAI, RateLimitError
+from openai import OpenAI, RateLimitError, APITimeoutError, APIConnectionError
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class RotatingKeyClient:
     Exposes .base_url and delegates attribute access so _is_json_object_provider works.
     """
 
-    def __init__(self, keys: list[str], base_url: str, timeout: float = 60.0):
+    def __init__(self, keys: list[str], base_url: str, timeout: float = 45.0):
         self._keys = keys
         self._base_url = base_url
         self._timeout = timeout
@@ -58,11 +58,12 @@ class RotatingKeyClient:
                 result = obj(**kwargs)
                 self._idx = (start + attempt) % len(self._clients)
                 return result
-            except RateLimitError:
+            except (RateLimitError, APITimeoutError, APIConnectionError) as exc:
                 key_short = self._keys[(start + attempt) % len(self._keys)][:8]
-                logger.warning(f"NVIDIA key {key_short}... hit 429 — rotating to next key")
+                reason = "429 rate limit" if isinstance(exc, RateLimitError) else "timeout/connection"
+                logger.warning(f"Key {key_short}... hit {reason} — rotating to next key")
                 time.sleep(0.5)
-        raise RateLimitError("All API keys exhausted (all returned 429)", response=None, body=None)
+        raise APITimeoutError("All API keys exhausted (all timed out or rate limited)", request=None)
 
 T = TypeVar("T", bound=BaseModel)
 
