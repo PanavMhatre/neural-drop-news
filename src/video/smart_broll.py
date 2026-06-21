@@ -122,6 +122,23 @@ class SmartBRollAgent:
                     proxies.append(f"http://{user}:{password}@{entry}")
         return proxies
 
+    def _cookie_file(self) -> Optional[str]:
+        """Write YOUTUBE_COOKIES_B64 to a temp file and return its path, or None."""
+        import base64, tempfile
+        raw = os.getenv("YOUTUBE_COOKIES_B64", "").strip()
+        if not raw:
+            return None
+        try:
+            decoded = base64.b64decode(raw).decode("utf-8")
+            tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+            tmp.write(decoded)
+            tmp.flush()
+            tmp.close()
+            return tmp.name
+        except Exception as e:
+            logger.warning(f"Failed to decode YOUTUBE_COOKIES_B64: {e}")
+            return None
+
     def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False,
                            proxy_url: str | None = None) -> bool:
         """Download via yt-dlp, routing through a residential proxy when available.
@@ -131,6 +148,8 @@ class SmartBRollAgent:
         """
         sub_flags = ["--write-subs", "--write-auto-subs", "--sub-langs", "en", "--sub-format", "vtt"] if write_subs else []
         proxy_flags = ["--proxy", proxy_url] if proxy_url else []
+        cookie_path = self._cookie_file()
+        cookie_flags = ["--cookies", cookie_path] if cookie_path else []
         cmd = [
             "yt-dlp",
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
@@ -138,7 +157,7 @@ class SmartBRollAgent:
             "--no-playlist",
             "--extractor-args", "youtube:player_client=ios,android,web_creator",
             "--socket-timeout", "30",
-        ] + proxy_flags + sub_flags + [url]
+        ] + proxy_flags + cookie_flags + sub_flags + [url]
         logger.info(f"yt-dlp cmd: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
@@ -408,7 +427,12 @@ class SmartBRollAgent:
         for video_id, snippet_title in candidates:
             url = f"https://www.youtube.com/watch?v={video_id}"
             logger.info(f"Trying YouTube [{video_id}] {snippet_title}")
-            if self._ydl_with_proxy_rotation(url, outtmpl, write_subs=True):
+            # Try with subs first; fall back to no-subs if subs trigger 429
+            success = self._ydl_with_proxy_rotation(url, outtmpl, write_subs=True)
+            if not success:
+                logger.info(f"Retrying [{video_id}] without subtitles")
+                success = self._ydl_with_proxy_rotation(url, outtmpl, write_subs=False)
+            if success:
                 video_path = next(self.output_dir.glob("source_video.mp4"), None) or next(self.output_dir.glob("source_video.*"), None)
                 subs_path = next(self.output_dir.glob("source_video.*.vtt"), None)
                 if video_path and video_path.stat().st_size > 10_000:
