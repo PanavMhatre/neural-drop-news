@@ -190,7 +190,7 @@ class Pipeline:
         """Groq — gpt-oss-120b for scoring/quality/metadata/b-roll (fast, analytical)."""
         from src.utils.llm import RotatingKeyClient
         keys = []
-        for var in ("GROQ_API_KEY_1", "GROQ_API_KEY_2", "GROQ_API_KEY_3", "GROQ_API_KEY"):
+        for var in ("GROQ_API_KEY_1", "GROQ_API_KEY_2", "GROQ_API_KEY_3", "GROQ_API_KEY_4", "GROQ_API_KEY_5", "GROQ_API_KEY"):
             k = os.getenv(var, "")
             if k and k not in keys:
                 keys.append(k)
