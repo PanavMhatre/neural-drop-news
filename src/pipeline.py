@@ -113,16 +113,16 @@ class Pipeline:
         # Scoring: Groq gpt-oss-120b (fast, analytical)
         self.scorer = StoryScorer(self._groq_client or self.openai_client, scoring_config, analytics_insights=analytics_insights)
 
-        # Script generation: NVIDIA deepseek-v4-flash (best creative quality)
+        # Script generation: Groq primary (NVIDIA consistently timing out), NVIDIA as fallback
         scripts_config = {
             **self.config.get("scripts", {}),
             "channel_name": self.config.get("channel", {}).get("name", "TechPulse Shorts"),
-            "llm_model": self._nvidia_model or self._groq_model or "openai/gpt-oss-120b",
+            "llm_model": self._groq_model or self._nvidia_model or "openai/gpt-oss-120b",
         }
         self.script_generator = ScriptGenerator(
-            self._nvidia_client or self._groq_client or self.openai_client,
+            self._groq_client or self._nvidia_client or self.openai_client,
             scripts_config,
-            fallback_client=self._groq_client,
+            fallback_client=self._nvidia_client,
         )
 
         # Quality gate: Groq gpt-oss-120b (analytical, fast)
@@ -131,7 +131,7 @@ class Pipeline:
             **self.config.get("scripts", {}),
             "llm_model": self._groq_model or "openai/gpt-oss-120b",
         }
-        self.quality_gate = QualityGate(self._nvidia_client or self._groq_client or self.openai_client, quality_config)
+        self.quality_gate = QualityGate(self._groq_client or self._nvidia_client or self.openai_client, quality_config)
 
         # Voice
         voice_config = self.config.get("voice", {})
@@ -149,9 +149,9 @@ class Pipeline:
             "generate_thumbnail": self.config.get("output", {}).get("generate_thumbnail", True),
         })
 
-        # Metadata: NVIDIA GLM-5.1 (saves Groq TPD for scoring + quality gate)
-        meta_config = {**self.config.get("scripts", {}), "llm_model": "z-ai/glm-5.1"}
-        self.metadata_generator = MetadataGenerator(self._nvidia_client or self._groq_client or self.openai_client, meta_config)
+        # Metadata: Groq primary (NVIDIA consistently timing out)
+        meta_config = {**self.config.get("scripts", {}), "llm_model": self._groq_model or "openai/gpt-oss-120b"}
+        self.metadata_generator = MetadataGenerator(self._groq_client or self._nvidia_client or self.openai_client, meta_config)
 
         # Output
         self.output_folder = self.config.get("output", {}).get("folder", "./output")
