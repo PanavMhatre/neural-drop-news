@@ -401,7 +401,7 @@ class SmartBRollAgent:
                         "q": query,
                         "part": "snippet",
                         "type": "video",
-                        "maxResults": 2,
+                        "maxResults": 3,
                         "videoDuration": "medium",  # 4-20 min — skips Shorts
                         "order": "relevance",
                     },
