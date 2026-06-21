@@ -517,7 +517,11 @@ class FrameCompositor:
         w, h = img.size
         stroke = 5
         max_w = w - 240  # narrower → shorter lines, more wrapping
-        words = hook_text.upper().split()[:10]
+        # Take first complete sentence if possible, otherwise first 8 words
+        import re as _re
+        first_sentence = _re.split(r'(?<=[.!?])\s', hook_text.strip())
+        hook_short = first_sentence[0] if first_sentence and len(first_sentence[0].split()) <= 12 else hook_text
+        words = hook_short.upper().split()[:12]
 
         # Greedy word-wrap into lines that fit max_w
         lines, line = [], []
