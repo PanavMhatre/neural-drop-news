@@ -22,7 +22,7 @@ class RotatingKeyClient:
     Exposes .base_url and delegates attribute access so _is_json_object_provider works.
     """
 
-    def __init__(self, keys: list[str], base_url: str, timeout: float = 45.0):
+    def __init__(self, keys: list[str], base_url: str, timeout: float = 20.0):
         self._keys = keys
         self._base_url = base_url
         self._timeout = timeout
