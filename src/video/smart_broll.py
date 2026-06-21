@@ -88,6 +88,7 @@ class SmartBRollAgent:
         self._coverr_idx = 0
         self.youtube_api_key = os.getenv("YOUTUBE_API_KEY", "")
         self._pixabay_timeout_count = 0  # circuit breaker: give up after 2 consecutive timeouts
+        self._yt_cookie_path = self._write_cookie_file()
 
         self.model = "openai/gpt-oss-20b"
         # Use NVIDIA OSS pool if available, otherwise fall back to passed client
@@ -122,11 +123,12 @@ class SmartBRollAgent:
                     proxies.append(f"http://{user}:{password}@{entry}")
         return proxies
 
-    def _cookie_file(self) -> Optional[str]:
-        """Write YOUTUBE_COOKIES_B64 to a temp file and return its path, or None."""
+    def _write_cookie_file(self) -> Optional[str]:
+        """Decode YOUTUBE_COOKIES_B64 once at init and write to a temp file."""
         import base64, tempfile
         raw = os.getenv("YOUTUBE_COOKIES_B64", "").strip()
         if not raw:
+            logger.warning("YOUTUBE_COOKIES_B64 not set — yt-dlp may hit bot detection")
             return None
         try:
             decoded = base64.b64decode(raw).decode("utf-8")
@@ -134,6 +136,7 @@ class SmartBRollAgent:
             tmp.write(decoded)
             tmp.flush()
             tmp.close()
+            logger.info(f"YouTube cookies loaded: {tmp.name} ({len(decoded)} bytes)")
             return tmp.name
         except Exception as e:
             logger.warning(f"Failed to decode YOUTUBE_COOKIES_B64: {e}")
@@ -148,8 +151,7 @@ class SmartBRollAgent:
         """
         sub_flags = ["--write-subs", "--write-auto-subs", "--sub-langs", "en", "--sub-format", "vtt"] if write_subs else []
         proxy_flags = ["--proxy", proxy_url] if proxy_url else []
-        cookie_path = self._cookie_file()
-        cookie_flags = ["--cookies", cookie_path] if cookie_path else []
+        cookie_flags = ["--cookies", self._yt_cookie_path] if self._yt_cookie_path else []
         cmd = [
             "yt-dlp",
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
