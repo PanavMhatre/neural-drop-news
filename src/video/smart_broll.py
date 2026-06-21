@@ -157,7 +157,7 @@ class SmartBRollAgent:
             "-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/best[height<=720]/best",
             "-o", outtmpl,
             "--no-playlist",
-            "--extractor-args", "youtube:player_client=ios,android,web_creator",
+            "--extractor-args", "youtube:player_client=tv_embedded,ios,android",
             "--socket-timeout", "30",
         ] + proxy_flags + cookie_flags + sub_flags + [url]
         logger.info(f"yt-dlp cmd: {' '.join(cmd)}")
