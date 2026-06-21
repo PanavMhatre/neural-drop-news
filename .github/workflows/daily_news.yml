@@ -128,6 +128,7 @@ jobs:
           NVIDIA_GLM_KEY_3:         ${{ secrets.NVIDIA_GLM_KEY_3 }}
           NVIDIA_GLM_KEY_4:         ${{ secrets.NVIDIA_GLM_KEY_4 }}
           NVIDIA_GLM_KEY_5:         ${{ secrets.NVIDIA_GLM_KEY_5 }}
+          NVIDIA_GLM_KEY_6:         ${{ secrets.NVIDIA_GLM_KEY_6 }}
           GROQ_API_KEY_1:           ${{ secrets.GROQ_API_KEY_1 }}
           GROQ_API_KEY_2:           ${{ secrets.GROQ_API_KEY_2 }}
           GROQ_API_KEY_3:           ${{ secrets.GROQ_API_KEY_3 }}
