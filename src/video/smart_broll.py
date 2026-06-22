@@ -142,6 +142,47 @@ class SmartBRollAgent:
             logger.warning(f"Failed to decode YOUTUBE_COOKIES_B64: {e}")
             return None
 
+    def _ydl_via_oracle_proxy(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
+        """Download YouTube video via Oracle VM WARP proxy.
+
+        The Oracle VM runs yt-dlp with --source-address 172.16.0.2 (Cloudflare WARP),
+        routing traffic through Cloudflare IPs that YouTube trusts.
+        """
+        proxy_base = os.getenv("ORACLE_PROXY_URL", "").rstrip("/")
+        if not proxy_base:
+            return False
+        try:
+            import tempfile, shutil
+            payload = {"url": url, "write_subs": write_subs}
+            logger.info(f"Oracle proxy download: {proxy_base}/download <- {url}")
+            resp = requests.post(
+                f"{proxy_base}/download",
+                json=payload,
+                timeout=120,
+                stream=True,
+            )
+            if resp.status_code != 200:
+                body = resp.text[:300]
+                logger.warning(f"Oracle proxy error {resp.status_code}: {body}")
+                return False
+            # Determine extension from Content-Disposition or default to mp4
+            cd = resp.headers.get("Content-Disposition", "")
+            ext = "mp4"
+            if "filename=" in cd:
+                fname = cd.split("filename=")[-1].strip().strip('"')
+                ext = fname.rsplit(".", 1)[-1] if "." in fname else "mp4"
+            # outtmpl may contain %(ext)s — resolve it
+            out_path = outtmpl.replace("%(ext)s", ext)
+            Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+            with open(out_path, "wb") as f:
+                shutil.copyfileobj(resp.raw, f)
+            size = Path(out_path).stat().st_size
+            logger.info(f"Oracle proxy saved: {out_path} ({size // 1024}KB)")
+            return size > 50_000
+        except Exception as e:
+            logger.warning(f"Oracle proxy failed: {e}")
+            return False
+
     def _ydl_bin_download(self, url: str, outtmpl: str, write_subs: bool = False,
                            proxy_url: str | None = None) -> bool:
         """Download via yt-dlp, routing through a residential proxy when available.
@@ -167,10 +208,15 @@ class SmartBRollAgent:
         return result.returncode == 0
 
     def _ydl_with_proxy_rotation(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
-        """Try download with each proxy in random order, fall back to direct."""
+        """Try Oracle WARP proxy first, then Webshare proxies, then direct."""
+        # 1. Oracle VM with Cloudflare WARP — most reliable, bypasses datacenter IP blocks
+        if os.getenv("ORACLE_PROXY_URL"):
+            if self._ydl_via_oracle_proxy(url, outtmpl, write_subs=write_subs):
+                return True
+            logger.warning("Oracle proxy failed — falling back to Webshare proxies")
         proxies = self._proxy_list()
         random.shuffle(proxies)
-        # Try proxies first
+        # Try Webshare proxies
         for proxy_url in proxies:
             ip = proxy_url.split("@")[-1]
             logger.info(f"Trying proxy {ip}...")
