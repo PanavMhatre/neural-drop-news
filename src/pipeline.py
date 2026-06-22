@@ -462,7 +462,10 @@ class Pipeline:
         output_dir = Path(self.output_folder) / package_id
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Steps 4+5: B-roll and TTS run in parallel (both independent of each other)
+        # Steps 4+5: Acquire B-roll; TTS only runs when YouTube is not the audio source.
+        # YOUTUBE_BROLL_ONLY=true → YouTube audio IS the voiceover — skip TTS entirely.
+        youtube_only_mode = os.getenv("YOUTUBE_BROLL_ONLY", "").lower() in ("1", "true", "yes")
+
         broll_source = "tts_only"
         yt_audio_path = None
         media_paths: dict[str, str] = {}
@@ -470,6 +473,7 @@ class Pipeline:
         voice_override = overrides.get("tts_voice") if overrides else None
 
         from concurrent.futures import ThreadPoolExecutor
+        from src.models.schemas import VoiceConfig as _VoiceConfig
 
         def _acquire_broll():
             if not self.render_video:
@@ -480,6 +484,9 @@ class Pipeline:
             return agent.acquire_media(script, scored_story.story, accent_color)
 
         def _generate_tts():
+            if youtube_only_mode:
+                # YouTube audio will be used — skip TTS generation entirely
+                return _VoiceConfig(voice="youtube-audio", model="youtube", speed=1.0)
             logger.info("Generating TTS voiceover...")
             return self.tts_engine.generate_voiceover(
                 script_text=script.full_script,
@@ -494,34 +501,41 @@ class Pipeline:
             media_paths, broll_source, yt_audio_path = f_broll.result()
             voice_config = f_tts.result()
 
-        # Separate caption audio from render audio.
-        # - caption_audio: always TTS (25-45s, matches AI script, fast for Whisper)
-        # - render_audio:  YouTube audio trimmed to script duration when available
-        #                  (authentic news sound); falls back to TTS
-        tts_audio_path = audio_path  # voiceover.mp3 written by _generate_tts above
-        render_audio_path = audio_path
+        # Determine render audio and caption approach.
+        # When YouTube B-roll is available:
+        #   - render_audio = YouTube audio trimmed to script duration (real news sound)
+        #   - captions = estimated timestamps from AI script (instant, no Whisper)
+        # When no YouTube B-roll (TTS mode):
+        #   - render_audio = TTS voiceover
+        #   - captions = Whisper alignment on TTS (fast, 25-45s)
+        render_audio_path = audio_path  # default: TTS voiceover
 
         if yt_audio_path and Path(yt_audio_path).exists():
-            tts_dur = self._get_audio_duration(tts_audio_path) or script.estimated_duration_seconds
+            script_dur = script.estimated_duration_seconds
             trimmed_yt = str(output_dir / "yt_audio_trimmed.mp3")
-            if self._trim_audio(yt_audio_path, trimmed_yt, tts_dur):
+            if self._trim_audio(yt_audio_path, trimmed_yt, script_dur):
                 render_audio_path = trimmed_yt
-                logger.info(f"YouTube audio trimmed to {tts_dur:.1f}s for video render")
+                logger.info(f"YouTube audio trimmed to {script_dur:.1f}s for video render")
             else:
                 render_audio_path = yt_audio_path
                 logger.info(f"YouTube audio (untrimmed) used for video render")
 
-        # Step 6: Get audio duration from TTS (drives caption timing + video length)
-        audio_duration = self._get_audio_duration(tts_audio_path)
-        if audio_duration is None:
+        # Step 6: Video duration — script estimate when using YouTube, TTS duration otherwise
+        if yt_audio_path and Path(yt_audio_path).exists():
             audio_duration = script.estimated_duration_seconds
-        logger.info(f"Script duration: {audio_duration:.1f}s")
+        else:
+            audio_duration = self._get_audio_duration(audio_path) or script.estimated_duration_seconds
+        logger.info(f"Video duration: {audio_duration:.1f}s")
 
-        # Step 7: Align captions against TTS — fast (25-45s) and matches script text.
-        # Running Whisper on 2-min YouTube audio would be slow AND produce captions
-        # of the YouTube presenter's speech, not our AI script.
+        # Step 7: Caption timestamps
+        # YouTube mode: estimated timestamps (instant) — AI script overlaid on YouTube footage
+        # TTS mode: Whisper alignment on TTS audio (25-45s, fast, matches spoken words)
         logger.info("Aligning captions...")
-        word_timestamps = self.aligner.align_audio(tts_audio_path, script.full_script)
+        if yt_audio_path and Path(yt_audio_path).exists():
+            word_timestamps = self.aligner._estimate_timestamps(script.full_script, render_audio_path)
+            logger.info(f"Using estimated caption timestamps ({len(word_timestamps)} words, no Whisper needed)")
+        else:
+            word_timestamps = self.aligner.align_audio(audio_path, script.full_script)
         caption_lines = self.caption_formatter.create_caption_lines(word_timestamps)
 
         # Step 8: Export caption files
