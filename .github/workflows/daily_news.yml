@@ -103,7 +103,8 @@ jobs:
           YOUTUBE_API_KEY:          ${{ secrets.YOUTUBE_API_KEY }}
           YOUTUBE_COOKIES_B64:      ${{ secrets.YOUTUBE_COOKIES_B64 }}
           ORACLE_PROXY_URL:         ${{ secrets.ORACLE_PROXY_URL }}
-          WEBSHARE_PROXIES:         ${{ secrets.WEBSHARE_PROXIES }}
+          ORACLE_PROXY_SECRET:      ${{ secrets.ORACLE_PROXY_SECRET }}
+          YOUTUBE_BROLL_ONLY:       "true"
           PEXELS_API_KEY:           ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY:          ${{ secrets.PIXABAY_API_KEY }}
           COVERR_API_KEY_1:         ${{ secrets.COVERR_API_KEY_1 }}

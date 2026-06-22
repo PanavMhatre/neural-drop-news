@@ -1,6 +1,5 @@
 import logging
 import os
-import random
 import subprocess
 import time
 from pathlib import Path
@@ -101,28 +100,6 @@ class SmartBRollAgent:
             from openai import OpenAI as _OAI
             self.client = _OAI(api_key=oss_keys[0], base_url="https://integrate.api.nvidia.com/v1")
 
-    def _proxy_list(self) -> list[str]:
-        """Parse WEBSHARE_PROXIES (ip:port:user:pass,...) into yt-dlp proxy URLs."""
-        raw = os.getenv("WEBSHARE_PROXIES", "").strip()
-        if not raw:
-            return []
-        proxies = []
-        for entry in raw.split(","):
-            entry = entry.strip()
-            if not entry:
-                continue
-            parts = entry.split(":")
-            if len(parts) == 4:
-                ip, port, user, password = parts
-                proxies.append(f"http://{user}:{password}@{ip}:{port}")
-            elif len(parts) == 2:
-                # ip:port only — use shared creds from env
-                user = os.getenv("WEBSHARE_USER", "")
-                password = os.getenv("WEBSHARE_PASS", "")
-                if user and password:
-                    proxies.append(f"http://{user}:{password}@{entry}")
-        return proxies
-
     def _write_cookie_file(self) -> Optional[str]:
         """Decode YOUTUBE_COOKIES_B64 once at init and write to a temp file."""
         import base64, tempfile
@@ -153,11 +130,14 @@ class SmartBRollAgent:
             return False
         try:
             import tempfile, shutil
+            secret = os.getenv("ORACLE_PROXY_SECRET", "")
+            headers = {"Authorization": f"Bearer {secret}"} if secret else {}
             payload = {"url": url, "write_subs": write_subs}
-            logger.info(f"Oracle proxy download: {proxy_base}/download <- {url}")
+            logger.info(f"Oracle WARP download: {proxy_base}/download <- {url}")
             resp = requests.post(
                 f"{proxy_base}/download",
                 json=payload,
+                headers=headers,
                 timeout=120,
                 stream=True,
             )
@@ -208,25 +188,15 @@ class SmartBRollAgent:
         return result.returncode == 0
 
     def _ydl_with_proxy_rotation(self, url: str, outtmpl: str, write_subs: bool = False) -> bool:
-        """Try Oracle WARP proxy first, then Webshare proxies, then direct."""
-        # 1. Oracle VM with Cloudflare WARP — most reliable, bypasses datacenter IP blocks
+        """Download via Oracle VM WARP proxy (primary) then fall back to direct yt-dlp.
+
+        Webshare residential proxies have been removed — Oracle WARP exits via
+        Cloudflare IPs (104.28.x.x) which YouTube does not block.
+        """
         if os.getenv("ORACLE_PROXY_URL"):
             if self._ydl_via_oracle_proxy(url, outtmpl, write_subs=write_subs):
                 return True
-            logger.warning("Oracle proxy failed — falling back to Webshare proxies")
-        proxies = self._proxy_list()
-        random.shuffle(proxies)
-        # Try Webshare proxies
-        for proxy_url in proxies:
-            ip = proxy_url.split("@")[-1]
-            logger.info(f"Trying proxy {ip}...")
-            if self._ydl_bin_download(url, outtmpl, write_subs=write_subs, proxy_url=proxy_url):
-                logger.info(f"Proxy succeeded: {ip}")
-                return True
-            logger.warning(f"Proxy failed: {ip}")
-        # Fall back to direct (works locally, fails on GH Actions without proxy)
-        if proxies:
-            logger.info("All proxies failed — trying direct connection")
+            logger.warning("Oracle WARP proxy failed — falling back to direct yt-dlp")
         return self._ydl_bin_download(url, outtmpl, write_subs=write_subs)
 
     def acquire_media(
@@ -259,7 +229,13 @@ class SmartBRollAgent:
             for cue in script.visual_plan:
                 media_paths[cue.section] = yt_video_path
         else:
-            logger.info("YouTube failed or unavailable — falling back to Pexels")
+            # If YOUTUBE_BROLL_ONLY is set, refuse stock footage — skip this story instead
+            if os.getenv("YOUTUBE_BROLL_ONLY", "").lower() in ("1", "true", "yes"):
+                raise NoVideoAvailable(
+                    f"YouTube B-roll unavailable for '{story.title[:60]}' "
+                    f"and YOUTUBE_BROLL_ONLY=true — story skipped"
+                )
+            logger.info("YouTube failed — falling back to stock video sources")
 
         # ── Step 2: All sources in parallel per section — pick best result ──────
         if not youtube_succeeded:
