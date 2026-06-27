@@ -87,6 +87,30 @@ SOURCE_REGISTRY: dict[str, SourceTier] = {
     "axios": SourceTier.TIER_2,
     "investing.com": SourceTier.TIER_2,
     "pymnts": SourceTier.TIER_2,
+    # Finance / markets outlets that cover crypto
+    "marketwatch": SourceTier.TIER_2,
+    "yahoofinance": SourceTier.TIER_2,
+    "finance.yahoo": SourceTier.TIER_2,
+    "seekingalpha": SourceTier.TIER_2,
+    "barrons": SourceTier.TIER_2,
+    "coindesk markets": SourceTier.TIER_1,
+    # Institutional / research outlets
+    "messari": SourceTier.TIER_1,
+    "chainalysis": SourceTier.TIER_2,
+    "glassnode": SourceTier.TIER_2,
+    "nansen": SourceTier.TIER_2,
+    "dune": SourceTier.TIER_3,
+    "elliptic": SourceTier.TIER_2,
+    "galaxy": SourceTier.TIER_2,
+    "grayscale": SourceTier.TIER_2,
+    "coinbase": SourceTier.TIER_2,
+    "a16zcrypto": SourceTier.TIER_2,
+    "paradigm": SourceTier.TIER_2,
+    # Aggregators / trackers
+    "coingecko": SourceTier.TIER_3,
+    "coinmarketcap": SourceTier.TIER_3,
+    "bitcoin.com": SourceTier.TIER_3,
+    "milkroad": SourceTier.TIER_3,
 
     # Tier 3: Blogs, smaller outlets
     "medium": SourceTier.TIER_3,

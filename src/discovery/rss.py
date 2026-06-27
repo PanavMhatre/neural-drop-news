@@ -104,6 +104,43 @@ RSS_FEEDS = [
         "url": "https://cryptobriefing.com/feed/",
         "categories": [StoryCategory.GENERAL_TECH],
     },
+    {
+        "name": "The Defiant",
+        "url": "https://thedefiant.io/feed",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "DL News",
+        "url": "https://www.dlnews.com/arc/outboundfeeds/rss/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Protos",
+        "url": "https://protos.com/feed/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    # ── Bing News RSS — aggregates Reuters, AP, CNBC, Bloomberg, FT, WSJ ──
+    # Free, no key. Returns direct source URLs (not Bing redirects).
+    {
+        "name": "Bing News — Bitcoin",
+        "url": "https://www.bing.com/news/search?q=bitcoin+crypto&format=rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Bing News — Ethereum",
+        "url": "https://www.bing.com/news/search?q=ethereum+blockchain&format=rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Bing News — Crypto Regulation",
+        "url": "https://www.bing.com/news/search?q=cryptocurrency+regulation+SEC&format=rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Bing News — Institutional Crypto",
+        "url": "https://www.bing.com/news/search?q=crypto+ETF+institutional+adoption&format=rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
 ]
 
 

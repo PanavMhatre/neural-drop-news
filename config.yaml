@@ -37,6 +37,9 @@ discovery:
     - "layer 2 crypto"
     - "tokenization blockchain"
     - "web3"
+    - "crypto market"
+    - "staking yield"
+    - "blockchain infrastructure"
   
   # Topics to filter OUT
   exclude_keywords:
