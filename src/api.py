@@ -384,6 +384,16 @@ def get_agent_status():
 
 
 # ---------------------------------------------------------------------------
+# Health check — UptimeRobot / Render health probe should ping this
+# ---------------------------------------------------------------------------
+
+@app.get("/health")
+def health_check():
+    """Lightweight liveness probe. Returns 200 immediately — no external calls."""
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
 # Curator Intelligence Brief
 # ---------------------------------------------------------------------------
 
@@ -477,6 +487,62 @@ def get_curator_brief():
                 "reason": "string — why curator selected this story",
             },
         },
+    }
+
+
+@app.get("/api/curator/news")
+def get_curator_news(hours: int = 24, max_results: int = 30):
+    """
+    Fetch recent crypto news articles using the Python NewsData client.
+
+    The curator calls this instead of hitting NewsData.io directly so it avoids
+    the paid-plan `timeframe` parameter. Articles are filtered client-side to
+    the requested `hours` window using pubDate.
+
+    Query params:
+      hours       — how many hours back to accept (default 24)
+      max_results — max articles to return (default 30)
+    """
+    import os
+    import yaml
+    from datetime import datetime, timezone, timedelta
+    from src.discovery.newsdata import NewsDataClient
+
+    api_key = os.getenv("NEWSDATA_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="NEWSDATA_API_KEY not configured")
+
+    with open("config.yaml") as f:
+        cfg = yaml.safe_load(f)
+
+    client = NewsDataClient(api_key=api_key, config=cfg.get("discovery", {}))
+    stories = client.search_stories(max_results=max_results)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    articles = []
+    for s in stories:
+        age_hours = None
+        if s.published_at:
+            pub = s.published_at if s.published_at.tzinfo else s.published_at.replace(tzinfo=timezone.utc)
+            age_hours = round((datetime.now(timezone.utc) - pub).total_seconds() / 3600, 1)
+            if pub < cutoff:
+                continue
+        articles.append({
+            "title": s.title,
+            "url": s.url,
+            "source": s.source_name,
+            "snippet": s.snippet,
+            "published_at": s.published_at.isoformat() if s.published_at else None,
+            "age_hours": age_hours,
+            "image_url": s.image_url,
+        })
+
+    return {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "hours_window": hours,
+        "total_fetched": len(stories),
+        "total_returned": len(articles),
+        "articles": articles,
     }
 
 
