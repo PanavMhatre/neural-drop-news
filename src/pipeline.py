@@ -30,7 +30,6 @@ from slugify import slugify
 from src.captions.aligner import WhisperAligner
 from src.captions.formatter import CaptionFormatter
 from src.discovery.newsdata import NewsDataClient
-from src.discovery.cryptopanic import CryptoPanicClient
 from src.discovery.cryptocurrency_cv import CryptoCVClient
 from src.discovery.rss import RSSClient
 from src.memory.database import Database
@@ -87,8 +86,6 @@ class Pipeline:
         newsdata_key = os.getenv("NEWSDATA_API_KEY")
         self.newsdata_client = NewsDataClient(newsdata_key, discovery_config) if newsdata_key else None
         self.rss_client = RSSClient(discovery_config)
-        cryptopanic_key = os.getenv("CRYPTOPANIC_API_KEY")
-        self.cryptopanic_client = CryptoPanicClient(cryptopanic_key, discovery_config) if cryptopanic_key else None
         self.cryptocv_client = CryptoCVClient(discovery_config)
 
         # Analytics — fetch channel insights to inform story scoring
@@ -334,16 +331,6 @@ class Pipeline:
                 logger.info(f"RSS: found {len(stories)} stories")
             except Exception as e:
                 logger.error(f"RSS search failed: {e}")
-
-        # CryptoPanic — always included when key is present; surfaces community-vetted
-        # trending stories that NewsData and RSS may not surface quickly enough.
-        if self.cryptopanic_client:
-            try:
-                stories = self.cryptopanic_client.search_stories(topic, max_results)
-                all_stories.extend(stories)
-                logger.info(f"CryptoPanic: found {len(stories)} trending stories")
-            except Exception as e:
-                logger.error(f"CryptoPanic search failed: {e}")
 
         # cryptocurrency.cv — always active, no API key required; 200+ aggregated sources
         # with a breaking news feed (last 2h) and category-filtered endpoints
