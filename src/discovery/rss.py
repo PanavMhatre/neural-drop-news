@@ -58,6 +58,32 @@ RSS_FEEDS = [
         "url": "https://openai.com/blog/rss.xml",
         "categories": [StoryCategory.OPENAI],
     },
+    # ── Crypto / Digital-asset feeds (fallback when NewsData.io is unavailable) ──
+    {
+        "name": "CoinDesk",
+        "url": "https://www.coindesk.com/arc/outboundfeeds/rss/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "CoinTelegraph",
+        "url": "https://cointelegraph.com/rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Decrypt",
+        "url": "https://decrypt.co/feed",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "The Block",
+        "url": "https://www.theblock.co/rss.xml",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Bitcoin Magazine",
+        "url": "https://bitcoinmagazine.com/.rss/full/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
 ]
 
 

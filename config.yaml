@@ -14,7 +14,7 @@ channel:
 # News Discovery
 # ---------------------------------------------------------------------------
 discovery:
-  provider: "newsdata"            # "newsdata" or "rss" or "both"
+  provider: "both"                # "newsdata" or "rss" or "both"
   max_stories_per_search: 20
   max_age_hours: 48               # Reject stories older than this
   search_topics:
