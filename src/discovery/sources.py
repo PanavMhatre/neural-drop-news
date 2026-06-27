@@ -44,6 +44,10 @@ SOURCE_REGISTRY: dict[str, SourceTier] = {
     "ieee": SourceTier.TIER_1,
     "arxiv": SourceTier.TIER_1,
 
+    # Tier 1: Crypto-native outlets with strong editorial standards
+    "coindesk": SourceTier.TIER_1,
+    "cointelegraph": SourceTier.TIER_1,
+
     # Tier 2: Established tech publications
     "techcrunch": SourceTier.TIER_2,
     "theverge": SourceTier.TIER_2,
@@ -69,6 +73,20 @@ SOURCE_REGISTRY: dict[str, SourceTier] = {
     "technologyreview": SourceTier.TIER_2,
     "hacker news": SourceTier.TIER_2,
     "ycombinator": SourceTier.TIER_2,
+    # Established crypto publications
+    "decrypt": SourceTier.TIER_2,
+    "theblock": SourceTier.TIER_2,
+    "blockworks": SourceTier.TIER_2,
+    "unchainedcrypto": SourceTier.TIER_2,
+    "cryptobriefing": SourceTier.TIER_2,
+    "thedefiant": SourceTier.TIER_2,
+    "dlnews": SourceTier.TIER_2,
+    "bitcoinmagazine": SourceTier.TIER_2,
+    "protos": SourceTier.TIER_2,
+    "cryptoslate": SourceTier.TIER_2,
+    "axios": SourceTier.TIER_2,
+    "investing.com": SourceTier.TIER_2,
+    "pymnts": SourceTier.TIER_2,
 
     # Tier 3: Blogs, smaller outlets
     "medium": SourceTier.TIER_3,
@@ -83,6 +101,18 @@ SOURCE_REGISTRY: dict[str, SourceTier] = {
     "digitaltrends": SourceTier.TIER_3,
     "bgr": SourceTier.TIER_3,
     "phonearena": SourceTier.TIER_3,
+    # Smaller crypto outlets
+    "coingape": SourceTier.TIER_3,
+    "newsbtc": SourceTier.TIER_3,
+    "bitcoinist": SourceTier.TIER_3,
+    "cryptopotato": SourceTier.TIER_3,
+    "ambcrypto": SourceTier.TIER_3,
+    "u.today": SourceTier.TIER_3,
+    "finbold": SourceTier.TIER_3,
+    "beincrypto": SourceTier.TIER_3,
+    "cryptonews": SourceTier.TIER_3,
+    "coinpedia": SourceTier.TIER_3,
+    "cryptotimes": SourceTier.TIER_3,
 }
 
 

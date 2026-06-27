@@ -141,6 +141,7 @@ jobs:
           BUFFER_CHANNEL_IDS:       ${{ secrets.BUFFER_CHANNEL_IDS }}
           ZERNIO_API_KEY:           ${{ secrets.ZERNIO_API_KEY }}
           ELEVENLABS_API_KEY:       ${{ secrets.ELEVENLABS_API_KEY }}
+          CRYPTOPANIC_API_KEY:      ${{ secrets.CRYPTOPANIC_API_KEY }}
           DISCORD_WEBHOOK_URL:      ${{ secrets.DISCORD_WEBHOOK_URL }}
           STORAGE_REPO:             panavm12-jpg/storage
           STORAGE_BRANCH:           main

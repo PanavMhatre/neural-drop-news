@@ -84,6 +84,26 @@ RSS_FEEDS = [
         "url": "https://bitcoinmagazine.com/.rss/full/",
         "categories": [StoryCategory.GENERAL_TECH],
     },
+    {
+        "name": "Blockworks",
+        "url": "https://blockworks.co/feed",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Unchained Crypto",
+        "url": "https://unchainedcrypto.com/feed/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "CryptoSlate",
+        "url": "https://cryptoslate.com/feed/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Crypto Briefing",
+        "url": "https://cryptobriefing.com/feed/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
 ]
 
 

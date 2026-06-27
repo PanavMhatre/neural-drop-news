@@ -21,6 +21,7 @@ discovery:
     - "bitcoin"
     - "ethereum"
     - "solana"
+    - "XRP"
     - "stablecoins"
     - "crypto regulation"
     - "bitcoin ETF"
@@ -33,6 +34,9 @@ discovery:
     - "crypto mining"
     - "digital asset policy"
     - "institutional crypto adoption"
+    - "layer 2 crypto"
+    - "tokenization blockchain"
+    - "web3"
   
   # Topics to filter OUT
   exclude_keywords:
