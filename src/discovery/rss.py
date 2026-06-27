@@ -58,6 +58,89 @@ RSS_FEEDS = [
         "url": "https://openai.com/blog/rss.xml",
         "categories": [StoryCategory.OPENAI],
     },
+    # ── Crypto / Digital-asset feeds (fallback when NewsData.io is unavailable) ──
+    {
+        "name": "CoinDesk",
+        "url": "https://www.coindesk.com/arc/outboundfeeds/rss/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "CoinTelegraph",
+        "url": "https://cointelegraph.com/rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Decrypt",
+        "url": "https://decrypt.co/feed",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "The Block",
+        "url": "https://www.theblock.co/rss.xml",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Bitcoin Magazine",
+        "url": "https://bitcoinmagazine.com/.rss/full/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Blockworks",
+        "url": "https://blockworks.co/feed",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Unchained Crypto",
+        "url": "https://unchainedcrypto.com/feed/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "CryptoSlate",
+        "url": "https://cryptoslate.com/feed/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Crypto Briefing",
+        "url": "https://cryptobriefing.com/feed/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "The Defiant",
+        "url": "https://thedefiant.io/feed",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "DL News",
+        "url": "https://www.dlnews.com/arc/outboundfeeds/rss/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Protos",
+        "url": "https://protos.com/feed/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    # ── Bing News RSS — aggregates Reuters, AP, CNBC, Bloomberg, FT, WSJ ──
+    # Free, no key. Returns direct source URLs (not Bing redirects).
+    {
+        "name": "Bing News — Bitcoin",
+        "url": "https://www.bing.com/news/search?q=bitcoin+crypto&format=rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Bing News — Ethereum",
+        "url": "https://www.bing.com/news/search?q=ethereum+blockchain&format=rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Bing News — Crypto Regulation",
+        "url": "https://www.bing.com/news/search?q=cryptocurrency+regulation+SEC&format=rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Bing News — Institutional Crypto",
+        "url": "https://www.bing.com/news/search?q=crypto+ETF+institutional+adoption&format=rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
 ]
 
 

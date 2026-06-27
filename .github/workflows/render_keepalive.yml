@@ -1,0 +1,30 @@
+name: Render Keep-Alive
+
+# Pings the Render service 10 minutes before the 04:00 CT curator run
+# (04:00 CDT = 09:00 UTC) so the free-tier instance is warm when the
+# curator calls /api/curator/brief. Without this, a cold start returns
+# 503 and the curator falls back to hardcoded keywords.
+
+on:
+  schedule:
+    - cron: '50 8 * * *'   # 08:50 UTC = 03:50 CDT — 10 min before curator
+  workflow_dispatch:        # Allow manual trigger for testing
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Wake up Render service
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 60 \
+            "https://neural-drop-news.onrender.com/api/videos")
+          echo "Render responded with HTTP $STATUS"
+          if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
+            echo "Service is warming up (200=ready, 503=cold start waking)"
+          else
+            echo "Unexpected status $STATUS"
+            exit 1
+          fi
