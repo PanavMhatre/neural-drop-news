@@ -362,7 +362,8 @@ class FrameCompositor:
         # Hook text — persistent white stroke label at top, always visible
         hook_opacity = anim.fade_in(frame_time, 0.0, duration=0.3)
         if hook_opacity > 0.05:
-            self._draw_hook_badge(img, script.sections.hook, self._fonts["hook"], hook_opacity, accent_color)
+            hook_display = script.hook_card if script.hook_card else script.sections.hook
+            self._draw_hook_badge(img, hook_display, self._fonts["hook"], hook_opacity, accent_color)
 
         # 5. Captions — CapCut style: centered, large, karaoke word highlight
         current_caption = self._get_current_caption(frame_time, caption_lines)
@@ -511,17 +512,14 @@ class FrameCompositor:
         opacity: float,
         accent_color: tuple,
     ) -> None:
-        """Hook text at top — wraps to fit width, white with black stroke."""
+        """Hook card at top — wraps to fit width, white with black stroke."""
         from PIL import ImageDraw
         draw = ImageDraw.Draw(img)
         w, h = img.size
         stroke = 5
         max_w = w - 240  # narrower → shorter lines, more wrapping
-        # Take first complete sentence if possible, otherwise first 8 words
-        import re as _re
-        first_sentence = _re.split(r'(?<=[.!?])\s', hook_text.strip())
-        hook_short = first_sentence[0] if first_sentence and len(first_sentence[0].split()) <= 12 else hook_text
-        words = hook_short.upper().split()[:12]
+        # hook_card is already 4-6 words; just uppercase and cap at 10 words for safety
+        words = hook_text.upper().split()[:10]
 
         # Greedy word-wrap into lines that fit max_w
         lines, line = [], []
@@ -708,10 +706,10 @@ class FrameCompositor:
             "-i", "-",
             "-i", audio_path,
             "-c:v", "libx264",
-            "-profile:v", "baseline",
-            "-level", "3.1",
+            "-profile:v", "high",
+            "-level", "4.0",
             "-preset", preset,
-            "-crf", "23",
+            "-crf", "18",
             "-r", str(self.fps), # output frame rate always 30fps
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",

@@ -184,6 +184,10 @@ class VisualCue(BaseModel):
 class GeneratedScript(BaseModel):
     """Complete script output from the LLM."""
     sections: ScriptSection
+    hook_card: str = Field(
+        default="",
+        description="4–6 word visual headline for the on-screen overlay (not the spoken hook)",
+    )
     full_script: str = Field(description="Full narration text, ready for TTS")
     word_count: int = Field(description="Total word count")
     estimated_duration_seconds: float = Field(description="Estimated narration duration")
@@ -346,6 +350,14 @@ class LLMStoryScore(BaseModel):
 class LLMScriptOutput(BaseModel):
     """Model for GPT-4o structured script generation output."""
     hook: str
+    hook_card: str = Field(
+        default="",
+        description=(
+            "4–6 word VISUAL headline for the on-screen overlay — NOT the spoken hook. "
+            "Punchy, shock-value, all-caps style. E.g. 'BTC LOST $8B OVERNIGHT', "
+            "'SEC APPROVES ETH FUND', 'SOLANA CROSSES $200 TODAY'."
+        )
+    )
     main_explanation: str
     why_it_matters: str
     student_dev_angle: str

@@ -119,13 +119,15 @@ jobs:
           STORAGE_BRANCH: main
           STORAGE_TOKEN: ${{ secrets.STORAGE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          _COUNT_INPUT: ${{ github.event.inputs.count }}
+          _SKIP_BUFFER_INPUT: ${{ github.event.inputs.skip_buffer }}
         run: |
-          COUNT=${{ github.event.inputs.count || '2' }}
+          COUNT="${_COUNT_INPUT:-2}"
           SKIP_BUFFER_FLAG=""
-          if [ "${{ github.event.inputs.skip_buffer }}" = "true" ]; then
+          if [ "$_SKIP_BUFFER_INPUT" = "true" ]; then
             SKIP_BUFFER_FLAG="--skip-buffer"
           fi
-          python3 run_daily.py --count $COUNT $SKIP_BUFFER_FLAG
+          python3 run_daily.py --count "$COUNT" $SKIP_BUFFER_FLAG
 
       # ── Upload output artifacts ──────────────────────────────────────────────
       - name: Upload video artifacts

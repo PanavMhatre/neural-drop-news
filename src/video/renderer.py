@@ -114,7 +114,7 @@ class VideoRenderer:
                 output_path=thumbnail_path,
                 template=template,
                 accent_color=accent_color,
-                hook_text=script.sections.hook,
+                hook_text=script.hook_card if script.hook_card else script.sections.hook,
                 channel_name=channel_name,
                 width=self.width,
                 height=self.height,

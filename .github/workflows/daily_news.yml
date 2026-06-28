@@ -146,12 +146,18 @@ jobs:
           STORAGE_BRANCH:           main
           STORAGE_TOKEN:            ${{ secrets.STORAGE_TOKEN }}
           GITHUB_TOKEN:             ${{ secrets.GITHUB_TOKEN }}
+          # Pass workflow_dispatch inputs as env vars — never interpolate raw JSON into
+          # the shell script body, because apostrophes in story titles break bash quoting.
+          _COUNT_INPUT:             ${{ github.event.inputs.count }}
+          _TOPIC_INPUT:             ${{ github.event.inputs.topic }}
+          _MANIFEST_INPUT:          ${{ github.event.inputs.manifest }}
+          _SKIP_BUFFER_INPUT:       ${{ github.event.inputs.skip_buffer }}
         run: |
-          COUNT=${{ github.event.inputs.count || '7' }}
-          TOPIC="${{ github.event.inputs.topic }}"
-          MANIFEST='${{ github.event.inputs.manifest }}'
+          COUNT="${_COUNT_INPUT:-7}"
+          TOPIC="$_TOPIC_INPUT"
+          MANIFEST="$_MANIFEST_INPUT"
           EXTRA=""
-          if [ "${{ github.event.inputs.skip_buffer }}" = "true" ]; then
+          if [ "$_SKIP_BUFFER_INPUT" = "true" ]; then
             EXTRA="--skip-buffer"
           fi
           if [ -n "$MANIFEST" ]; then
