@@ -246,13 +246,14 @@ class Pipeline:
             
             # Create a mock perfect score since the user specifically requested this URL
             mock_score = StoryScore(
-                tech_relevance=10,
-                broad_appeal=10,
-                visual_potential=10,
-                novelty=10,
-                total_score=100,
-                reasoning="Directly requested by user via URL.",
-                category="general_tech"
+                freshness=100,
+                source_credibility=100,
+                relevance=100,
+                viral_potential=100,
+                educational_value=100,
+                business_angle=100,
+                visual_potential=100,
+                explainability=100,
             )
             accepted = [ScoredStory(story=parsed_story, score=mock_score, accepted=True, detected_tone="general")]
         else:
