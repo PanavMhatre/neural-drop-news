@@ -175,7 +175,7 @@ class SmartBRollAgent:
         cookie_flags = ["--cookies", self._yt_cookie_path] if self._yt_cookie_path else []
         cmd = [
             "yt-dlp",
-            "-f", "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4][height<=1080]/best[height<=1080]/best",
+            "-f", "bv*[ext=mp4][height<=2160]+ba[ext=m4a]/bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4][height<=2160]/best",
             "-o", outtmpl,
             "--no-playlist",
             "--extractor-args", "youtube:player_client=tv_embedded,ios,android",

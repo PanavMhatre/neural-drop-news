@@ -694,7 +694,8 @@ class FrameCompositor:
         """Build the FFmpeg command for encoding."""
         import os
         in_fps = render_fps or self.fps
-        preset = "ultrafast" if os.getenv("CI") else "faster"
+        # CI uses ultrafast for speed; non-CI uses slow for maximum quality
+        preset = "ultrafast" if os.getenv("CI") else "slow"
         return [
             "ffmpeg",
             "-y",
@@ -702,18 +703,20 @@ class FrameCompositor:
             "-vcodec", "rawvideo",
             "-s", f"{self.width}x{self.height}",
             "-pix_fmt", "rgb24",
-            "-r", str(in_fps),   # input frame rate (10fps on CI)
+            "-r", str(in_fps),
             "-i", "-",
             "-i", audio_path,
             "-c:v", "libx264",
             "-profile:v", "high",
             "-level", "4.0",
             "-preset", preset,
-            "-crf", "18",
-            "-r", str(self.fps), # output frame rate always 30fps
+            "-crf", "15",          # near-lossless (was 18)
+            "-bf", "2",            # B-frames for better compression at same quality
+            "-g", "30",            # keyframe every 1s at 30fps
+            "-r", str(self.fps),
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",
-            "-b:a", "192k",
+            "-b:a", "320k",        # high-quality audio (was 192k)
             "-shortest",
             "-movflags", "+faststart",
             output_path,
