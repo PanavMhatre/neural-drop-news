@@ -9,8 +9,8 @@ import requests
 
 BUFFER_API_URL = "https://api.buffer.com"
 CHANNEL_CTA_LINES = [
-    "Full AI briefing in bio -> Neural Drop",
-    "Get the 3-minute AI briefing -> bit.ly/neural-drop",
+    "Full crypto briefing in bio -> Neural Drop",
+    "Get the daily crypto briefing -> bit.ly/neural-drop",
 ]
 DEFAULT_YOUTUBE_CATEGORY = os.getenv("BUFFER_YOUTUBE_CATEGORY", "28")
 BUFFER_SERVICE_ALIASES = {
@@ -50,7 +50,12 @@ BUFFER_SERVICE_ORDER = {
 
 
 class BufferError(RuntimeError):
-    pass
+    def __init__(self, message: str, completed: "list[dict] | None" = None):
+        super().__init__(message)
+        # Channel posts that succeeded before this error, if raised mid-batch
+        # by create_scheduled_video_posts — lets a caller record partial
+        # success instead of losing track of channels that were already posted.
+        self.completed = completed or []
 
 
 def normalize_due_at(value: str) -> str:
@@ -213,7 +218,10 @@ class BufferClient:
             raise BufferError("Buffer video URL must be public HTTPS, not localhost or a local file")
 
         due_at_utc = normalize_due_at(due_at)
-        video_asset = f"url: {json.dumps(video_url)}"
+        video_asset_fields = [f"url: {json.dumps(video_url)}"]
+        if thumbnail_url and is_public_url(thumbnail_url):
+            video_asset_fields.append(f"thumbnailUrl: {json.dumps(thumbnail_url)}")
+        video_asset = ", ".join(video_asset_fields)
         service = canonical_buffer_service(channel.get("service"))
         if service == "instagram":
             extra_input = "metadata: { instagram: { type: reel, shouldShareToFeed: true } }"
@@ -278,16 +286,31 @@ class BufferClient:
         thumbnail_url: str | None = None,
         text_by_service: dict[str, str] | None = None,
     ) -> list[dict]:
-        return [
-            self._create_scheduled_video_post_for_channel(
-                channel=channel,
-                text=(text_by_service or {}).get(canonical_buffer_service(channel.get("service")), text),
-                due_at=due_at,
-                video_url=video_url,
-                thumbnail_url=thumbnail_url,
-            )
-            for channel in self.resolve_target_channels()
-        ]
+        # Post channels one at a time (not a list comprehension) so a failure
+        # partway through a multi-channel batch doesn't lose track of the
+        # channels that already succeeded — those get attached to the raised
+        # BufferError so the caller can record them instead of the whole
+        # package silently ending up unrecorded on every channel.
+        channels = self.resolve_target_channels()
+        completed: list[dict] = []
+        for channel in channels:
+            try:
+                completed.append(
+                    self._create_scheduled_video_post_for_channel(
+                        channel=channel,
+                        text=(text_by_service or {}).get(canonical_buffer_service(channel.get("service")), text),
+                        due_at=due_at,
+                        video_url=video_url,
+                        thumbnail_url=thumbnail_url,
+                    )
+                )
+            except BufferError as exc:
+                raise BufferError(
+                    f"Buffer post failed for channel {channel.get('id')} ({channel.get('service')}) "
+                    f"after {len(completed)}/{len(channels)} channel(s) succeeded: {exc}",
+                    completed=completed,
+                ) from exc
+        return completed
 
 
 def package_public_url(public_base_url: str, package_id: str, filename: str) -> str:
@@ -318,7 +341,7 @@ def build_post_text(package_dir: Path, service: str | None = None) -> str:
 
     lower_text = text.lower()
     cta_lines = []
-    if "full ai briefing in bio" not in lower_text:
+    if "full crypto briefing in bio" not in lower_text:
         cta_lines.append(CHANNEL_CTA_LINES[0])
     if "bit.ly/neural-drop" not in lower_text:
         cta_lines.append(CHANNEL_CTA_LINES[1])

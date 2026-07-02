@@ -55,16 +55,23 @@ class AutonomousAgent:
             package = packages[0]
             package_id = package.package_id
             
-            # 2. Self-Approval Gate
-            if package.quality_report.verdict == "approved":
+            # 2. Self-Approval Gate — verdict alone isn't enough. safe_to_post
+            # already folds in "approved AND no warnings", and manual_review_required
+            # is a separate LLM flag (metadata/generator.py) for sensitive topics,
+            # unverifiable claims, or speculation presented as fact. Autonomous
+            # posting must respect both, or a flagged video ships unreviewed.
+            needs_review = package.metadata.manual_review_required
+            if package.quality_report.safe_to_post and not needs_review:
                 logger.info(f"Agent: Package {package_id} approved by AI! Scheduling...")
-                
+
                 # Schedule for a few hours in the future
                 scheduled_time = (datetime.now() + timedelta(hours=self.schedule_delay_hours)).isoformat()
-                
+
                 # 3. Queue into scheduling buffer
                 self.db.schedule_post(package_id, scheduled_time)
                 logger.info(f"Agent: Successfully scheduled {package_id} for {scheduled_time}")
+            elif needs_review:
+                logger.info(f"Agent: Package {package_id} flagged for manual review — discarding from autonomous queue. Warnings: {package.metadata.review_warnings}")
             else:
                 logger.info(f"Agent: Package {package_id} rejected (Score: {package.quality_report.overall_score}). Discarding.")
                 
