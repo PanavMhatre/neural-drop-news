@@ -65,7 +65,7 @@ class TTSEngine:
         # Try ElevenLabs first (best quality)
         if self.elevenlabs_key:
             try:
-                self._generate_elevenlabs(script_text, output_path)
+                self._generate_elevenlabs(script_text, output_path, speed)
                 logger.info(f"ElevenLabs voiceover saved: {output_path} ({output_file.stat().st_size / 1024:.1f} KB)")
                 voice_config.voice = f"elevenlabs:{ELEVENLABS_VOICE_ID}"
                 return voice_config
@@ -81,21 +81,34 @@ class TTSEngine:
             logger.error(f"All TTS providers failed: {e}")
             raise
 
-    def _generate_elevenlabs(self, text: str, output_path: str) -> None:
+    def _generate_elevenlabs(self, text: str, output_path: str, speed: float = 1.0) -> None:
         resp = requests.post(
             f"{ELEVENLABS_API_URL}/{ELEVENLABS_VOICE_ID}",
+            # Highest-bitrate MP3 ElevenLabs offers — without this the API
+            # defaults to mp3_44100_128, capping quality well below what the
+            # final 320kbps AAC mux can actually preserve. If the account tier
+            # doesn't support it, ElevenLabs 4xxs and the existing except
+            # clause below falls back to edge-tts, same as any other failure.
+            params={"output_format": "mp3_44100_192"},
             headers={
                 "xi-api-key": self.elevenlabs_key,
                 "Content-Type": "application/json",
             },
             json={
                 "text": text,
-                "model_id": "eleven_monolingual_v1",
+                # eleven_monolingual_v1 is ElevenLabs' original 2022-era model —
+                # eleven_multilingual_v2 is the current, meaningfully higher
+                # quality/more stable model for narration.
+                "model_id": "eleven_multilingual_v2",
                 "voice_settings": {
                     "stability": 0.55,
                     "similarity_boost": 0.75,
                     "style": 0.3,
                     "use_speaker_boost": True,
+                    # Was silently ignored on this path — the configured
+                    # "slightly faster for energy" speed only ever reached
+                    # the edge-tts fallback, never ElevenLabs itself.
+                    "speed": max(0.7, min(1.2, speed)),
                 },
             },
             timeout=60,
@@ -106,6 +119,10 @@ class TTSEngine:
             raise RuntimeError("ElevenLabs returned empty audio")
 
     def _generate_edge_tts(self, text: str, output_path: str, voice: str, speed: float) -> None:
+        # edge-tts hardcodes its output to audio-24khz-48kbitrate-mono-mp3 —
+        # there's no public option to raise this. This path only matters as an
+        # emergency fallback when ElevenLabs is unset/failing; if it's running
+        # often, that's the real quality problem to chase, not this function.
         import asyncio
         import edge_tts
 
