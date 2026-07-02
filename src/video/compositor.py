@@ -15,7 +15,7 @@ import cv2
 from PIL import Image, ImageFont
 
 from src.captions.formatter import CaptionFormatter
-from src.models.schemas import CaptionLine, GeneratedScript, VisualCue
+from src.models.schemas import CaptionLine, GeneratedScript, VisualCue, WordTimestamp
 from src.video import animations as anim
 from src.video import elements as elem
 from src.video.templates import TemplateConfig
@@ -41,6 +41,10 @@ class FrameCompositor:
         # Load fonts
         self._fonts: dict[str, ImageFont.FreeTypeFont] = {}
         self._load_fonts()
+
+        # Pre-computed gradient overlay for b-roll (cached so we don't
+        # redraw 700 lines every single frame).
+        self._broll_gradient_overlay: Optional[Image.Image] = None
 
     def _load_fonts(self) -> None:
         """Load font files with fallback to default."""
@@ -101,7 +105,7 @@ class FrameCompositor:
         source_text: str = "",
         show_progress_bar: bool = True,
         progress_callback = None,
-        cta_text: str = "Get the daily AI briefing >>",
+        cta_text: str = "Get the daily crypto briefing >>",
         cta_link: str = "bit.ly/neural-drop",
         cta_duration: float = 3.5,
         show_cta: bool = True,
@@ -128,19 +132,28 @@ class FrameCompositor:
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # On CI (GitHub Actions) render at 10fps to cut wall time by 3x.
-        # Output is re-stamped to 30fps by FFmpeg so playback is smooth.
-        import os
-        render_fps = 5 if os.getenv("CI") else self.fps
+        # Always render at the full target fps. Throttling this on CI (previously
+        # 15fps, held for 2 output frames each) traded away real motion smoothness —
+        # duplicated frames read as blur/judder on any b-roll with camera motion,
+        # which is most of it. The per-frame render loop is fast enough now
+        # (cached gradient overlay, native PIL stroke, sequential video reads)
+        # that native fps is no longer the bottleneck it used to be.
+        render_fps = self.fps
         total_frames = int(total_duration * render_fps)
-        logger.info(
-            f"Rendering {total_frames} frames ({total_duration:.1f}s) at {render_fps}fps"
-            + (" [CI fast mode]" if render_fps != self.fps else "")
-        )
+        logger.info(f"Rendering {total_frames} frames ({total_duration:.1f}s) at {render_fps}fps")
 
-        # Pre-load media images and video captures into memory
+        # Pre-load media images and video captures into memory.
+        # Captures/fps/cache are keyed by resolved PATH, not section name — when
+        # multiple sections share one source file (e.g. a single YouTube b-roll
+        # video reused for every section), they must share one decoder position
+        # too. Keying by section name gave each section its own cv2.VideoCapture
+        # that always started reading from frame 0, so every section replayed
+        # the same opening seconds of footage instead of advancing through it.
         loaded_media = {}
-        video_captures = {}
+        video_captures: dict[str, cv2.VideoCapture] = {}
+        video_fps_map: dict[str, float] = {}   # source fps per capture, keyed by path
+        video_frame_cache: dict[str, tuple[int, Optional[Image.Image]]] = {}  # (last_frame_idx, last_pil_frame), keyed by path
+        video_crop_fraction: dict[str, float] = {}  # horizontal engagement-crop position (0..1), keyed by path
         IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}
         VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv"}
         for section, path in media_paths.items():
@@ -150,10 +163,31 @@ class FrameCompositor:
             if Path(path).exists():
                 try:
                     if ext in VIDEO_EXTS:
-                        cap = cv2.VideoCapture(path)
-                        video_captures[section] = cap
+                        if path not in video_captures:
+                            cap = cv2.VideoCapture(path)
+                            video_captures[path] = cap
+                            video_fps_map[path] = cap.get(cv2.CAP_PROP_FPS) or 30.0
+                            video_frame_cache[path] = (-1, None)
+                            # Score a fixed horizontal crop position once per
+                            # source instead of always cropping dead-center —
+                            # this was implemented (engagement_crop.py) but
+                            # never wired up, so every landscape source was
+                            # center-cropped regardless of where the actual
+                            # subject/motion was in frame.
+                            try:
+                                from src.video.engagement_crop import engagement_crop_x
+                                src_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0
+                                src_duration = src_frames / video_fps_map[path] if video_fps_map[path] else 0
+                                crop_window = min(30.0, src_duration) if src_duration > 0 else 30.0
+                                video_crop_fraction[path] = engagement_crop_x(
+                                    path, target_h=self.height, target_w=self.width, duration=crop_window,
+                                )
+                            except Exception as crop_err:
+                                logger.warning(f"Engagement crop scoring failed for {path}: {crop_err}")
+                                video_crop_fraction[path] = 0.5
                     else:
-                        loaded_media[section] = Image.open(path).convert("RGB")
+                        if section not in loaded_media:
+                            loaded_media[section] = Image.open(path).convert("RGB")
                 except Exception as e:
                     logger.warning(f"Failed to load media for {section}: {e}")
 
@@ -195,7 +229,11 @@ class FrameCompositor:
                     sections=sections,
                     caption_lines=caption_lines,
                     loaded_media=loaded_media,
+                    media_paths=media_paths,
                     video_captures=video_captures,
+                    video_fps_map=video_fps_map,
+                    video_frame_cache=video_frame_cache,
+                    video_crop_fraction=video_crop_fraction,
                     channel_name=channel_name,
                     source_text=source_text,
                     show_progress_bar=show_progress_bar,
@@ -267,11 +305,15 @@ class FrameCompositor:
         sections: list[dict],
         caption_lines: list[CaptionLine],
         loaded_media: dict[str, Image.Image],
+        media_paths: dict[str, str],
         video_captures: dict[str, cv2.VideoCapture],
+        video_fps_map: dict[str, float],
+        video_frame_cache: dict[str, tuple[int, Optional[Image.Image]]],
+        video_crop_fraction: dict[str, float],
         channel_name: str,
         source_text: str,
         show_progress_bar: bool,
-        cta_text: str = "Get the daily AI briefing >>",
+        cta_text: str = "Get the daily crypto briefing >>",
         cta_link: str = "bit.ly/neural-drop",
         cta_duration: float = 3.5,
         show_cta: bool = True,
@@ -285,20 +327,70 @@ class FrameCompositor:
         section_start = current_section["start"] if current_section else 0.0
         
         broll_img = None
+        matched_path: Optional[str] = None
 
         # Try every section name in fallback order: current → all others → motion bg
-        _candidates = [section_name] + [s for s in list(video_captures.keys()) + list(loaded_media.keys()) if s != section_name]
+        _candidates = [section_name] + [s for s in list(media_paths.keys()) + list(loaded_media.keys()) if s != section_name]
         for _candidate in _candidates:
-            cap = video_captures.get(_candidate)
+            cand_path = media_paths.get(_candidate)
+            cap = video_captures.get(cand_path) if cand_path else None
             if cap:
-                ret, cv_frame = cap.read()
-                if not ret:
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                    ret, cv_frame = cap.read()
-                if ret:
-                    cv_frame = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
-                    broll_img = Image.fromarray(cv_frame)
+                # Read frames SEQUENTIALLY with smart skip/hold.
+                # cv2 H.264 seeking (CAP_PROP_POS_FRAMES) snaps to keyframes
+                # causing visible jumps — sequential reads are both faster
+                # and frame-accurate.
+                #
+                # Position is driven by the ABSOLUTE render timeline (frame_time),
+                # not time-since-this-section-started. Multiple sections can share
+                # one long source video (e.g. a single YouTube b-roll clip reused
+                # across every section) via a shared decoder keyed by path — using
+                # section-relative time here would reset every section back to the
+                # start of the source, so every section replayed the same opening
+                # few seconds instead of the source advancing across the whole video.
+                src_fps = video_fps_map.get(cand_path, 30.0)
+                total_src_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 1)
+                target_frame = int(frame_time * src_fps) % max(total_src_frames, 1)
+
+                last_idx, last_pil = video_frame_cache.get(cand_path, (-1, None))
+
+                if target_frame == last_idx and last_pil is not None:
+                    # Same frame as last time — reuse cached PIL image
+                    broll_img = last_pil
+                    matched_path = cand_path
                     break
+                elif target_frame > last_idx:
+                    # Need to advance — read forward sequentially (skip frames we don't need)
+                    frames_to_skip = target_frame - last_idx - 1
+                    for _ in range(min(frames_to_skip, 120)):  # cap skip distance
+                        cap.grab()  # fast: decodes but doesn't convert
+                    ret, cv_frame = cap.read()
+                    if not ret:
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        ret, cv_frame = cap.read()
+                    if ret:
+                        cv_frame = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
+                        broll_img = Image.fromarray(cv_frame)
+                        video_frame_cache[cand_path] = (target_frame, broll_img)
+                        matched_path = cand_path
+                        break
+                    elif last_pil is not None:
+                        broll_img = last_pil
+                        matched_path = cand_path
+                        break
+                else:
+                    # target_frame < last_idx → looped back, must seek
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, target_frame))
+                    ret, cv_frame = cap.read()
+                    if ret:
+                        cv_frame = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
+                        broll_img = Image.fromarray(cv_frame)
+                        video_frame_cache[cand_path] = (target_frame, broll_img)
+                        matched_path = cand_path
+                        break
+                    elif last_pil is not None:
+                        broll_img = last_pil
+                        matched_path = cand_path
+                        break
             else:
                 still = loaded_media.get(_candidate)
                 if still:
@@ -332,27 +424,37 @@ class FrameCompositor:
             curr_w = max(self.width, int(target_w * scale))
             curr_h = max(self.height, int(target_h * scale))
 
+            # LANCZOS — BILINEAR visibly softens footage on every single frame,
+            # especially downscaling 4K source to canvas size. This is the main
+            # per-frame sharpness cost in the whole render; worth the extra CPU.
             resized = broll_img.resize((curr_w, curr_h), Image.Resampling.LANCZOS)
 
-            # Center-crop to exact canvas size
-            left = (curr_w - self.width) // 2
+            # Horizontal crop position: use the per-source engagement-crop
+            # fraction (favors the most detail/motion-rich region) instead of
+            # always cropping dead-center, which could cut a subject in half
+            # on wide landscape footage. Falls back to 0.5 (= old center-crop
+            # behavior) for still images or if scoring wasn't available.
+            crop_x_fraction = video_crop_fraction.get(matched_path, 0.5) if matched_path else 0.5
+            left = int((curr_w - self.width) * crop_x_fraction)
             top = (curr_h - self.height) // 2
             cropped = resized.crop((left, top, left + self.width, top + self.height))
 
-            # Dark gradient overlay so text stays readable over any footage
-            overlay = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
-            from PIL import ImageDraw as _ID
-            _d = _ID.Draw(overlay)
-            # Top gradient (hook text zone)
-            for y in range(300):
-                alpha = int(180 * (1 - y / 300))
-                _d.line([(0, y), (self.width, y)], fill=(0, 0, 0, alpha))
-            # Bottom gradient (caption zone)
-            for y in range(400):
-                alpha = int(190 * (1 - y / 400))
-                _d.line([(0, self.height - 1 - y), (self.width, self.height - 1 - y)], fill=(0, 0, 0, alpha))
+            # Dark gradient overlay — built once and reused every frame
+            if self._broll_gradient_overlay is None:
+                overlay = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
+                from PIL import ImageDraw as _ID
+                _d = _ID.Draw(overlay)
+                # Top gradient (hook text zone)
+                for y in range(300):
+                    alpha = int(180 * (1 - y / 300))
+                    _d.line([(0, y), (self.width, y)], fill=(0, 0, 0, alpha))
+                # Bottom gradient (caption zone)
+                for y in range(400):
+                    alpha = int(190 * (1 - y / 400))
+                    _d.line([(0, self.height - 1 - y), (self.width, self.height - 1 - y)], fill=(0, 0, 0, alpha))
+                self._broll_gradient_overlay = overlay
 
-            img = Image.alpha_composite(cropped.convert("RGBA"), overlay).convert("RGB")
+            img = Image.alpha_composite(cropped.convert("RGBA"), self._broll_gradient_overlay).convert("RGB")
 
         else:
             # No b-roll — render an animated motion-graphics background so the
@@ -374,20 +476,24 @@ class FrameCompositor:
                 frame_time, current_caption.end_time, duration=0.06
             )
             if caption_opacity > 0.05:
-                active_word: str | None = None
+                # Track the active word by its POSITION in current_caption.words,
+                # not by text — matching by string equality highlighted every
+                # occurrence of a repeated word (e.g. "the") in the line at once.
+                active_word_idx: Optional[int] = None
                 if current_caption.words:
-                    for wt in current_caption.words:
+                    for idx, wt in enumerate(current_caption.words):
                         if wt.start <= frame_time <= wt.end:
-                            active_word = wt.word.strip(".,!?;:").lower()
+                            active_word_idx = idx
                             break
-                    if active_word is None:
-                        upcoming = [w for w in current_caption.words if w.start > frame_time]
-                        if upcoming:
-                            active_word = upcoming[0].word.strip(".,!?;:").lower()
+                    if active_word_idx is None:
+                        for idx, wt in enumerate(current_caption.words):
+                            if wt.start > frame_time:
+                                active_word_idx = idx
+                                break
 
                 self._draw_karaoke_caption(
-                    img, current_caption.text, self._fonts["caption"],
-                    active_word=active_word,
+                    img, current_caption.words, self._fonts["caption"],
+                    active_word_idx=active_word_idx,
                     accent_color=accent_color,
                     opacity=caption_opacity,
                 )
@@ -514,9 +620,8 @@ class FrameCompositor:
     ) -> None:
         """Hook card at top — wraps to fit width, white with black stroke."""
         from PIL import ImageDraw
-        draw = ImageDraw.Draw(img)
         w, h = img.size
-        stroke = 5
+        stroke_w = 5
         max_w = w - 240  # narrower → shorter lines, more wrapping
         # hook_card is already 4-6 words; just uppercase and cap at 10 words for safety
         words = hook_text.upper().split()[:10]
@@ -539,15 +644,24 @@ class FrameCompositor:
         # Anchor bottom of hook text block at y=560, grow upward
         bottom_y = 560
         y = bottom_y - total_h
+
+        # Draw on a transparent overlay so `opacity` actually fades the badge in —
+        # drawing straight onto `img` (an RGB frame) with a plain fill color has
+        # no way to represent partial transparency, so the fade-in was a no-op
+        # and the badge just popped in at full opacity.
+        alpha = max(0, min(255, int(255 * opacity)))
+        overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
         for text in lines:
             bb = font.getbbox(text)
             lx = (w - (bb[2] - bb[0])) // 2
-            for dx in range(-stroke, stroke + 1):
-                for dy in range(-stroke, stroke + 1):
-                    if abs(dx) + abs(dy) <= stroke + 1 and not (dx == 0 and dy == 0):
-                        draw.text((lx + dx, y + dy), text, fill=(0, 0, 0), font=font)
-            draw.text((lx, y), text, fill=(255, 255, 255), font=font)
+            # Use PIL's native stroke instead of brute-force nested loops
+            draw.text(
+                (lx, y), text, fill=(255, 255, 255, alpha), font=font,
+                stroke_width=stroke_w, stroke_fill=(0, 0, 0, alpha),
+            )
             y += line_h
+        img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
 
     def _draw_motion_background(
         self,
@@ -623,18 +737,31 @@ class FrameCompositor:
     def _draw_karaoke_caption(
         self,
         img: Image.Image,
-        text: str,
+        words: list[WordTimestamp],
         font,
-        active_word: str | None,
+        active_word_idx: Optional[int],
         accent_color: tuple,
         opacity: float = 1.0,
     ) -> None:
         """TikTok-style captions: bold white text, thick black stroke, yellow active word."""
         from PIL import ImageDraw
-        draw = ImageDraw.Draw(img)
         width, height = img.size
-        words = text.upper().split()
         if not words:
+            return
+
+        # Build display tokens directly from `words` (not from re-splitting
+        # CaptionLine.text) so highlighting can match by POSITION. Text-only
+        # matching highlighted every occurrence of a repeated word; re-splitting
+        # the joined text also silently drifted out of sync with `words` for
+        # hyphenated tokens (formatter.py turns "well-known" into two text
+        # tokens but keeps one WordTimestamp). Cleaning each word individually
+        # here keeps a 1:1 (index, token) pairing with the original timestamps.
+        display: list[tuple[int, str]] = []
+        for idx, wt in enumerate(words):
+            token = wt.word.upper().replace(",", "").replace("-", " ").replace("—", " ").strip()
+            if token:
+                display.append((idx, token))
+        if not display:
             return
 
         def word_w(w: str) -> int:
@@ -642,60 +769,69 @@ class FrameCompositor:
             return bb[2] - bb[0]
 
         space_w = word_w(" ")
-        total_w = sum(word_w(w) for w in words) + space_w * (len(words) - 1)
+        total_w = sum(word_w(w) for _, w in display) + space_w * (len(display) - 1)
 
         # Break into 2 lines only if truly needed
         max_w = width - 80
         if total_w > max_w:
-            mid = len(words) // 2
-            lines = [words[:mid], words[mid:]]
+            mid = len(display) // 2
+            lines = [display[:mid], display[mid:]]
         else:
-            lines = [words]
+            lines = [display]
 
         line_h = font.getbbox("A")[3] + 12
         total_lines_h = len(lines) * line_h
         base_y = int(height * 0.72) - total_lines_h // 2
 
-        stroke = 6  # thick black outline like TikTok
+        stroke_w = 6  # thick black outline like TikTok
+
+        # Draw on a transparent overlay so `opacity` actually fades captions
+        # in/out — drawing straight onto `img` (RGB) ignored the alpha channel
+        # entirely, so captions snapped on/off instead of fading.
+        alpha = max(0, min(255, int(255 * opacity)))
+        overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
 
         for line_idx, line_words in enumerate(lines):
-            line_text_w = sum(word_w(w) for w in line_words) + space_w * (len(line_words) - 1)
+            line_text_w = sum(word_w(w) for _, w in line_words) + space_w * (len(line_words) - 1)
             cur_x = (width - line_text_w) // 2
             cur_y = base_y + line_idx * line_h
 
-            for i, word in enumerate(line_words):
-                # Compare against active_word (already lowercased strip from caller)
-                clean_lower = word.lower().strip(".,!?;:'\"")
-                is_active = bool(active_word) and clean_lower == active_word
+            for i, (orig_idx, word) in enumerate(line_words):
+                is_active = active_word_idx is not None and orig_idx == active_word_idx
+                fill_color = (255, 220, 0, alpha) if is_active else (255, 255, 255, alpha)
 
-                fill_color = (255, 220, 0) if is_active else (255, 255, 255)
-
-                # Thick black stroke: draw text offset in a ring
-                for dx in range(-stroke, stroke + 1):
-                    for dy in range(-stroke, stroke + 1):
-                        if dx == 0 and dy == 0:
-                            continue
-                        if abs(dx) + abs(dy) <= stroke + 1:
-                            draw.text(
-                                (cur_x + dx, cur_y + dy),
-                                word,
-                                fill=(0, 0, 0),
-                                font=font,
-                            )
-
-                # Draw white (or yellow) fill on top
-                draw.text((cur_x, cur_y), word, fill=fill_color, font=font)
+                # Use PIL's native stroke — single call replaces ~169 nested draw.text calls
+                draw.text(
+                    (cur_x, cur_y), word, fill=fill_color, font=font,
+                    stroke_width=stroke_w, stroke_fill=(0, 0, 0, alpha),
+                )
 
                 cur_x += word_w(word) + (space_w if i < len(line_words) - 1 else 0)
+
+        img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
 
     def _build_ffmpeg_command(
         self, output_path: str, audio_path: str, duration: float, render_fps: int = None
     ) -> list[str]:
         """Build the FFmpeg command for encoding."""
-        import os
         in_fps = render_fps or self.fps
-        # CI uses ultrafast for speed; non-CI uses slow for maximum quality
-        preset = "ultrafast" if os.getenv("CI") else "slow"
+        # Highest quality x264 preset that still has a real payoff — beyond
+        # "veryslow" (i.e. "placebo") the encoding-time cost stops buying any
+        # visible quality, per x264's own docs. Uploads are not time-constrained
+        # here (see run_daily.py / GitHub Actions timeout budget), so there's
+        # no reason to trade quality for speed on the final encode.
+        preset = "veryslow"
+
+        # Loudness-normalize to the -14 LUFS integrated target every major
+        # platform (YouTube, TikTok, Instagram, Spotify) recommends, then a
+        # short fade-out so a hard trim at the very end (audio sources vary:
+        # TTS, extracted YouTube audio, stock-clip audio) doesn't click/pop.
+        # Without this, videos built from different audio sources land at
+        # wildly different perceived loudness across the same channel.
+        fade_start = max(0.0, duration - 0.4)
+        audio_filter = f"loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=out:st={fade_start:.3f}:d=0.4"
+
         return [
             "ffmpeg",
             "-y",
@@ -708,15 +844,44 @@ class FrameCompositor:
             "-i", audio_path,
             "-c:v", "libx264",
             "-profile:v", "high",
-            "-level", "4.0",
+            # Level 4.0 caps VBV/max-bitrate well below what a near-lossless
+            # CRF 15 target wants for detailed 1080x1920 footage, silently
+            # forcing extra quantization in busy scenes. 5.2 is the highest
+            # standard level, effectively removing that ceiling — every
+            # modern platform (YouTube, TikTok, Instagram, Buffer) accepts it.
+            "-level", "5.2",
+            # Pair the raised level with an explicit VBV cap well above anything
+            # CRF 15 on 1080x1920@30fps busy footage actually produces (a few
+            # tens of Mbps) — without -maxrate/-bufsize, CRF has no rate-control
+            # ceiling at all, so a pathological scene could in principle emit a
+            # bitstream that violates the very VBV limits -level 5.2 declares.
+            "-maxrate", "50M",
+            "-bufsize", "100M",
             "-preset", preset,
-            "-crf", "15",          # near-lossless (was 18)
+            "-crf", "15",          # near-lossless; going lower has no visible
+                                    # payoff since every platform re-encodes on ingest
             "-bf", "2",            # B-frames for better compression at same quality
             "-g", "30",            # keyframe every 1s at 30fps
             "-r", str(self.fps),
             "-pix_fmt", "yuv420p",
+            # Tag standard-dynamic-range Rec.709 — otherwise the encoded MP4
+            # carries no colorspace metadata at all, so some players/platforms
+            # guess (sometimes BT.601), producing a slightly shifted
+            # color/contrast rendition of the same file. Verified with
+            # ffprobe that setting these as plain output flags only actually
+            # took effect for -colorspace/-color_range on this stack — the
+            # `setparams` video filter is what reliably tags all four fields
+            # (colorspace, primaries, trc, range) on the encoded stream.
+            "-vf", "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv",
+            "-color_range", "tv",
             "-c:a", "aac",
             "-b:a", "320k",        # high-quality audio (was 192k)
+            "-ar", "48000",        # normalize sample rate — upstream sources vary
+                                    # (edge-tts 24kHz, ElevenLabs 44.1kHz, extracted
+                                    # YouTube audio) and would otherwise pass through
+                                    # to the AAC encoder unchanged, varying per video
+            "-ac", "2",
+            "-af", audio_filter,
             "-shortest",
             "-movflags", "+faststart",
             output_path,

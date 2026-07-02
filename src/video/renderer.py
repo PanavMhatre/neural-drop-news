@@ -47,7 +47,7 @@ class VideoRenderer:
         channel_name: str = "TechPulse Shorts",
         source_name: str = "",
         progress_callback = None,
-        cta_text: str = "Get the daily AI briefing >>",
+        cta_text: str = "Get the daily crypto briefing >>",
         cta_link: str = "bit.ly/neural-drop",
         cta_duration: float = 3.5,
         show_cta: bool = True,

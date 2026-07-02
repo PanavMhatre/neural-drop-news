@@ -1,9 +1,9 @@
 """
-Motion graphics fallback — generates short animated video clips using PIL + FFmpeg.
+Motion graphics — generates short animated video clips using PIL + FFmpeg.
 
-Used when both YouTube and Pixabay fail for a section. Produces a 9:16 animated
-background (price chart draw-on, data bars, animated stats) so there are never
-blank sections in the final video.
+Produces a 9:16 animated background (price chart draw-on, data bars, animated
+stats). Not currently called from SmartBRollAgent (b-roll is YouTube-only —
+no stock-footage or synthetic fallback), but kept as a standalone utility.
 """
 
 import math
