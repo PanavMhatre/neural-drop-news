@@ -39,7 +39,7 @@ Score each category from 0 to 100:
 - visual_potential: How well can this be visualized in a short video? (100 = has real footage/charts/events, 0 = nothing to show)
 - explainability: Can this be clearly explained in under 45 seconds? (100 = simple and clear, 0 = too complex)
 
-ACCEPT stories about: Bitcoin, Ethereum, Solana, stablecoins, crypto regulation, ETFs, crypto exchanges, DeFi, mining, institutional adoption, hacks/exploits, treasury moves, on-chain data milestones.
+ACCEPT stories about: Bitcoin, Ethereum, Solana, stablecoins, crypto regulation, ETFs, crypto exchanges, DeFi, mining, institutional adoption, hacks/exploits, treasury moves, on-chain data milestones, crypto events/conferences, major company product launches (Coinbase, Binance, Kraken, etc.), token airdrops/listings, and major protocol upgrades.
 
 REJECT if:
 - The story has no clear crypto or digital-asset angle
@@ -270,12 +270,32 @@ Respond ONLY with a JSON object with these exact fields:
     def _is_crypto_relevant(self, story: RawStory) -> bool:
         """Hard pre-filter: reject anything with no crypto/digital-asset angle."""
         CRYPTO_KEYWORDS = {
+            # Core assets & tech
             "bitcoin", "btc", "ethereum", "eth", "solana", "sol", "crypto",
             "blockchain", "defi", "stablecoin", "usdt", "usdc", "nft",
-            "altcoin", "token", "wallet", "exchange", "binance", "coinbase",
-            "coindesk", "decrypt", "cointelegraph", "regulation", "sec crypto",
-            "digital asset", "web3", "mining", "halving", "etf bitcoin",
-            "ethereum etf", "on-chain", "satoshi", "dex", "cefi",
+            "altcoin", "token", "wallet", "mining", "halving", "on-chain",
+            "satoshi", "dex", "cefi", "web3", "layer 2", "rollup",
+            # Exchanges & major companies
+            "exchange", "binance", "coinbase", "kraken", "crypto.com",
+            "gemini", "bitfinex", "okx", "bybit", "robinhood crypto",
+            "coindesk", "decrypt", "cointelegraph",
+            # Companies & protocols
+            "ripple", "xrp", "cardano", "ada", "polygon", "matic",
+            "avalanche", "avax", "chainlink", "link", "uniswap",
+            "aave", "lido", "maker", "compound", "curve",
+            "microstrategy", "tether", "circle", "galaxy digital",
+            "grayscale", "blackrock bitcoin", "fidelity crypto",
+            # Regulation & policy
+            "regulation", "sec crypto", "digital asset",
+            "etf bitcoin", "ethereum etf", "crypto bill",
+            # Events, launches, industry
+            "token launch", "airdrop", "listing", "mainnet",
+            "testnet", "hard fork", "upgrade", "partnership",
+            "acquisition", "conference", "consensus", "eth denver",
+            "token2049", "crypto event", "venture", "funding round",
+            "ipo crypto", "staking", "yield", "liquidity",
+            # Security
+            "hack", "exploit", "rug pull", "scam",
         }
         text = f"{story.title} {story.snippet or ''}".lower()
         return any(kw in text for kw in CRYPTO_KEYWORDS)

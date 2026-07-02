@@ -19,6 +19,7 @@ NEWSDATA_BASE_URL = "https://newsdata.io/api/1/news"
 
 # Map search terms to story categories
 TOPIC_CATEGORY_MAP = {
+    # AI Categories
     "openai": StoryCategory.OPENAI,
     "anthropic": StoryCategory.ANTHROPIC,
     "google ai": StoryCategory.GOOGLE_AI,
@@ -35,6 +36,20 @@ TOPIC_CATEGORY_MAP = {
     "product launch": StoryCategory.PRODUCT_LAUNCH,
     "tech layoff": StoryCategory.TECH_JOBS,
     "tech hiring": StoryCategory.TECH_JOBS,
+    
+    # Crypto Events, Launches, Companies
+    "launch": StoryCategory.PRODUCT_LAUNCH,
+    "listing": StoryCategory.PRODUCT_LAUNCH,
+    "upgrade": StoryCategory.PRODUCT_LAUNCH,
+    "partnership": StoryCategory.AI_STARTUPS,
+    "conference": StoryCategory.GENERAL_TECH,
+    "funding": StoryCategory.AI_FUNDING,
+    "acquisition": StoryCategory.AI_STARTUPS,
+    "coinbase": StoryCategory.AI_STARTUPS,
+    "binance": StoryCategory.AI_STARTUPS,
+    "kraken": StoryCategory.AI_STARTUPS,
+    "ripple": StoryCategory.AI_STARTUPS,
+    "microstrategy": StoryCategory.AI_STARTUPS,
 }
 
 

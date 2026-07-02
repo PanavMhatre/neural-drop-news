@@ -23,7 +23,7 @@ def track_video_published(
     video_id: str,
     title: str,
     story_topic: str,
-    broll_source: str,          # "youtube" | "pixabay" | "motion_graphics"
+    broll_source: str,          # "youtube"
     duration_seconds: float,
     quality_score: int,
     platform: str = "buffer",   # "instagram" | "tiktok" | "youtube_shorts"

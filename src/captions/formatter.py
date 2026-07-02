@@ -14,18 +14,26 @@ from src.models.schemas import CaptionLine, WordTimestamp
 
 logger = logging.getLogger(__name__)
 
-# Company/product names to highlight
+# Company/asset/protocol names to highlight
 HIGHLIGHT_TERMS = {
-    "openai", "gpt", "gpt-4", "gpt-5", "chatgpt",
-    "anthropic", "claude",
-    "google", "gemini", "deepmind",
-    "meta", "llama",
-    "apple", "siri",
-    "nvidia", "cuda", "blackwell",
-    "microsoft", "copilot",
-    "amazon", "aws",
-    "tesla",
-    "ai", "ml", "llm", "gpu", "cpu", "api",
+    # Core crypto assets
+    "bitcoin", "btc", "ethereum", "eth", "solana", "sol",
+    "xrp", "ripple", "cardano", "ada", "dogecoin", "doge",
+    "polygon", "matic", "avalanche", "avax", "chainlink", "link",
+    "litecoin", "ltc", "bnb",
+    # Stablecoins & DeFi
+    "usdt", "usdc", "tether", "stablecoin", "defi",
+    "uniswap", "aave", "lido", "maker", "compound", "curve",
+    # Exchanges & major companies
+    "coinbase", "binance", "kraken", "gemini", "bitfinex", "okx", "bybit",
+    "microstrategy", "circle", "grayscale", "blackrock", "fidelity",
+    "galaxy digital",
+    # Regulation & market structure
+    "sec", "etf", "cftc", "fed",
+    # Legacy AI/tech terms (still appear occasionally in crossover stories)
+    "openai", "gpt", "chatgpt", "anthropic", "claude",
+    "google", "nvidia", "microsoft", "amazon", "tesla", "meta",
+    "ai", "ml", "api",
     "billion", "million", "trillion",
 }
 

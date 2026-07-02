@@ -116,7 +116,7 @@ Generate optimized metadata for this video."""
 
         # Build AI disclosure
         ai_disclosure = (
-            f"This video uses AI-generated narration (OpenAI {voice_config.model}, "
+            f"This video uses AI-generated narration ({voice_config.model}, "
             f"voice: {voice_config.voice}) and AI-assisted script writing and editing. "
             f"All facts are sourced from credited publications. "
             f"Content was reviewed by a human before posting."
@@ -133,12 +133,12 @@ Generate optimized metadata for this video."""
             description += f"\n\n📰 Sources:\n{sources_str}"
 
         # Add Neural Drop CTA to description
-        neural_drop_cta = "\n\n🧠 Get the 3-minute AI briefing → bit.ly/neural-drop"
+        neural_drop_cta = "\n\n🧠 Get the daily crypto briefing → bit.ly/neural-drop"
         if "bit.ly/neural-drop" not in description:
             description += neural_drop_cta
 
         # Ensure Neural Drop hashtags are included
-        neural_drop_tags = ["#NeuralDrop", "#AIBriefing", "#AIDrops"]
+        neural_drop_tags = ["#NeuralDrop", "#CryptoBriefing", "#CryptoDrops"]
         merged_hashtags = list(result.hashtags)
         for tag in neural_drop_tags:
             if tag not in merged_hashtags:
@@ -169,11 +169,11 @@ Generate optimized metadata for this video."""
 
         fallback_description = (
             f"{script.description}\n\n🤖 {ai_disclosure}"
-            f"\n\n🧠 Get the 3-minute AI briefing → bit.ly/neural-drop"
+            f"\n\n🧠 Get the daily crypto briefing → bit.ly/neural-drop"
         )
 
-        fallback_hashtags = script.hashtags or ["#AINews", "#TechShorts", "#TechNews"]
-        for tag in ["#NeuralDrop", "#AIBriefing", "#AIDrops"]:
+        fallback_hashtags = script.hashtags or ["#CryptoNews", "#CryptoShorts", "#BitcoinNews"]
+        for tag in ["#NeuralDrop", "#CryptoBriefing", "#CryptoDrops"]:
             if tag not in fallback_hashtags:
                 fallback_hashtags.append(tag)
 

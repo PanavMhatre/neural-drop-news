@@ -16,8 +16,60 @@ from src.models.schemas import RawStory, StoryCategory
 
 logger = logging.getLogger(__name__)
 
-# Curated list of tech/AI RSS feeds
+# Curated list of tech/AI + crypto RSS feeds
 RSS_FEEDS = [
+    # ── Crypto-native sources ─────────────────────────────────────────────
+    {
+        "name": "CoinDesk",
+        "url": "https://www.coindesk.com/arc/outboundfeeds/rss/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Decrypt",
+        "url": "https://decrypt.co/feed",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "The Block",
+        "url": "https://www.theblock.co/rss.xml",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Cointelegraph",
+        "url": "https://cointelegraph.com/rss",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Coinbase Blog",
+        "url": "https://www.coinbase.com/blog/rss.xml",
+        "categories": [StoryCategory.PRODUCT_LAUNCH],
+    },
+    {
+        "name": "Binance Blog",
+        "url": "https://www.binance.com/en/blog/rss",
+        "categories": [StoryCategory.PRODUCT_LAUNCH],
+    },
+    {
+        "name": "CryptoSlate",
+        "url": "https://cryptoslate.com/feed/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Bitcoin Magazine",
+        "url": "https://bitcoinmagazine.com/.rss/full/",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    {
+        "name": "Blockworks",
+        "url": "https://blockworks.co/feed",
+        "categories": [StoryCategory.GENERAL_TECH, StoryCategory.AI_FUNDING],
+    },
+    {
+        "name": "DeFiant",
+        "url": "https://thedefiant.io/feed",
+        "categories": [StoryCategory.GENERAL_TECH],
+    },
+    # ── General tech / AI sources ─────────────────────────────────────────
     {
         "name": "TechCrunch",
         "url": "https://techcrunch.com/feed/",

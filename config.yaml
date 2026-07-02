@@ -15,24 +15,45 @@ channel:
 # ---------------------------------------------------------------------------
 discovery:
   provider: "newsdata"            # "newsdata" or "rss" or "both"
-  max_stories_per_search: 20
+  max_stories_per_search: 50
   max_age_hours: 48               # Reject stories older than this
   search_topics:
+    # Core crypto markets
     - "bitcoin"
     - "ethereum"
     - "solana"
     - "stablecoins"
-    - "crypto regulation"
     - "bitcoin ETF"
     - "ethereum ETF"
-    - "crypto exchange"
-    - "token treasury strategy"
-    - "on-chain security"
-    - "crypto hacks"
     - "defi"
     - "crypto mining"
+    # Regulation & policy
+    - "crypto regulation"
     - "digital asset policy"
+    - "SEC crypto"
+    # Major exchanges & companies
+    - "coinbase"
+    - "binance"
+    - "kraken crypto"
+    - "crypto.com"
+    - "Ripple XRP"
+    - "Circle USDC"
+    - "Tether USDT"
+    - "MicroStrategy bitcoin"
+    # Events, launches & industry
+    - "crypto launch"
+    - "token launch"
+    - "blockchain conference"
+    - "crypto partnership"
+    - "crypto exchange listing"
+    - "protocol upgrade"
+    - "crypto acquisition"
     - "institutional crypto adoption"
+    - "crypto venture funding"
+    # Security & on-chain
+    - "crypto hacks"
+    - "on-chain security"
+    - "token treasury strategy"
   
   # Topics to filter OUT
   exclude_keywords:
@@ -92,7 +113,10 @@ voice:
 # Captions
 # ---------------------------------------------------------------------------
 captions:
-  whisper_model: "base"           # tiny, base, small, medium, large
+  whisper_model: "small"          # tiny, base, small, medium, large — the rest of the
+                                   # pipeline already spends a 6h CI budget on veryslow/
+                                   # crf15 encoding, so speed no longer justifies "base"'s
+                                   # noticeably worse word-timing accuracy
   words_per_line: 2               # Max words per caption line
   highlight_companies: true       # Highlight company names
   highlight_numbers: true         # Highlight numbers/stats
@@ -157,19 +181,19 @@ output:
 distribution:
   brand_name: "Neural Drop"
   link: "bit.ly/neural-drop"
-  tagline: "The 3-minute AI briefing for students, builders, and creators."
-  cta_prompt: "Get the daily AI briefing >>"
+  tagline: "The 3-minute crypto briefing for traders, builders, and curious newcomers."
+  cta_prompt: "Get the daily crypto briefing >>"
   cta_texts:
-    - "Get the daily AI briefing >> bit.ly/neural-drop"
-    - "Top 5 AI moves daily >> bit.ly/neural-drop"
-    - "Stay ahead of AI >> bit.ly/neural-drop"
-  caption_cta: "Full AI briefing in bio >> Neural Drop"
-  pinned_comment: "I post the full daily AI briefing on Neural Drop -- link in bio."
+    - "Get the daily crypto briefing >> bit.ly/neural-drop"
+    - "Top 5 crypto moves daily >> bit.ly/neural-drop"
+    - "Stay ahead of crypto >> bit.ly/neural-drop"
+  caption_cta: "Full crypto briefing in bio >> Neural Drop"
+  pinned_comment: "I post the full daily crypto briefing on Neural Drop -- link in bio."
   hashtags:
     - "#NeuralDrop"
-    - "#AIBriefing"
-    - "#AIDrops"
-    - "#DailyAI"
+    - "#CryptoBriefing"
+    - "#CryptoDrops"
+    - "#DailyCrypto"
   cta_duration_seconds: 3.5
   show_cta_overlay: true
 
