@@ -42,20 +42,22 @@ def engagement_crop_x(
     target_w: int = 1080,
     start: float = 0.0,
     duration: float = 30.0,
-) -> str:
+) -> float:
     """
-    Return an ffmpeg crop x expression that keeps the most active/detail-rich
-    part of the frame after scaling the source to target_h.
+    Score candidate horizontal crop positions for detail/motion and return the
+    best one as a 0.0-1.0 fraction of the available crop range (0.0 = left
+    edge, 0.5 = center, 1.0 = right edge) — independent of whatever actual
+    scale (including any zoom effect) a caller later renders at.
     """
     frames = _sample_frames(Path(video_path), start=start, duration=duration)
     if not frames:
-        return f"(in_w-{target_w})/2"
+        return 0.5
 
     height, width = frames[0].shape[:2]
     scaled_w = int(round(width * (target_h / height)))
     max_x = max(0, scaled_w - target_w)
     if max_x <= 0:
-        return "0"
+        return 0.5
 
     candidate_count = 9
     candidates = np.linspace(0, max_x, candidate_count)
@@ -83,7 +85,8 @@ def engagement_crop_x(
             scores[i] += score * (1.0 - center_distance * 0.12)
 
     best_x = int(round(float(candidates[int(scores.argmax())])))
-    return str(max(0, min(best_x, max_x)))
+    best_x = max(0, min(best_x, max_x))
+    return best_x / max_x
 
 
 def engagement_window_start(

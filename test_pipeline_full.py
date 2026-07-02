@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Full pipeline integration test — no TTS, no Buffer.
-Tests: news discovery → analytics loading → scoring with boost → b-roll (YouTube + Pixabay + motion graphics)
+Tests: news discovery → analytics loading → scoring with boost → b-roll (YouTube) + motion graphics
 """
 from __future__ import annotations
 import json
@@ -172,24 +172,6 @@ except Exception as e:
     check("YouTube b-roll", False, str(e))
     import traceback; traceback.print_exc()
 
-
-# ── 6. PIXABAY B-ROLL ────────────────────────────────────────
-print("\n[6] Pixabay B-Roll")
-try:
-    pix_out = Path("./output/test_broll_pix")
-    pix_out.mkdir(parents=True, exist_ok=True)
-    agent = SmartBRollAgent(str(pix_out), openai_client)
-
-    pixabay_key = os.getenv("PIXABAY_API_KEY", "")
-    if not pixabay_key:
-        check("Pixabay API key", False, "PIXABAY_API_KEY not set — will fallback to motion graphics")
-    else:
-        pix_path = agent._fetch_pixabay_video("Bitcoin hits record high", "price action analysis", 0)
-        pix_ok = pix_path is not None and Path(pix_path).exists()
-        check("Pixabay search + download", pix_ok,
-              f"{Path(pix_path).stat().st_size // 1024}KB" if pix_ok else "no result")
-except Exception as e:
-    check("Pixabay b-roll", False, str(e))
 
 
 # ── 7. MOTION GRAPHICS FALLBACK ──────────────────────────────

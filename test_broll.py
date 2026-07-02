@@ -26,5 +26,5 @@ story = RawStory(
 )
 
 agent = SmartBRollAgent("./demo/test_broll", pipeline.openai_client)
-paths = agent.acquire_media(script, story, (255, 0, 0))
+paths = agent.acquire_media(script, story)
 print(paths)

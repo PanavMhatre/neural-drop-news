@@ -342,17 +342,40 @@ class Pipeline:
         logger.info(f"After dedup: {len(fresh_stories)}/{len(all_stories)} stories are fresh")
         return fresh_stories
 
-    def _heuristic_prefilter(self, stories, top_n: int = 10):
+    def _heuristic_prefilter(self, stories, top_n: int = 30):
         """Fast pre-filter before expensive LLM scoring. Ranks by freshness + keyword match."""
         from datetime import datetime, timezone
         import re
 
-        high_value = {"bitcoin", "ethereum", "solana", "btc", "eth", "etf", "regulation", "sec",
-                      "hack", "stablecoin", "defi", "institutional", "coinbase", "binance"}
+        high_value = {
+            # Core assets & markets
+            "bitcoin", "ethereum", "solana", "btc", "eth", "etf",
+            "stablecoin", "defi", "mining",
+            # Regulation & policy
+            "regulation", "sec",
+            # Major exchanges & companies
+            "coinbase", "binance", "kraken", "gemini", "okx",
+            "ripple", "xrp", "microstrategy", "grayscale", "blackrock",
+            "circle", "tether", "fidelity",
+            # Protocols & DeFi
+            "uniswap", "aave", "chainlink", "lido", "polygon",
+            "avalanche", "cardano",
+            # Events, launches, industry
+            "launch", "mainnet", "listing", "partnership", "acquisition",
+            "airdrop", "upgrade", "conference", "consensus",
+            "institutional", "venture", "funding",
+            # Security
+            "hack", "exploit",
+        }
 
-        # Hard-reject presale shills, price predictions, and opinion "top picks" before LLM scoring
+        # Hard-reject presale shills, price predictions, and opinion "top picks" before LLM scoring.
+        # NOTE: no bare "could .* be" — that construction also matches legitimate
+        # regulatory/ETF headlines ("Ethereum ETF Could Finally Be Approved This
+        # Week"), silently killing exactly the story type the scorer prioritizes.
+        # The listicle-style intent is already covered by the specific phrases below.
         shill_patterns = re.compile(
-            r"\b(presale|top \d+ crypto|cryptos? to buy|price prediction|could .* be|"
+            r"\b(presale|top \d+ crypto|cryptos? to buy|price prediction|"
+            r"could be the (right|best|top) pick|"
             r"right pick|losing momentum|gains momentum|collects \$|raised \$.*presale|"
             r"pepeto|pepe2|meme ?coin presale)\b",
             re.IGNORECASE
@@ -481,7 +504,7 @@ class Pipeline:
             logger.info("Acquiring b-roll media...")
             from src.video.smart_broll import SmartBRollAgent
             agent = SmartBRollAgent(str(output_dir), self.openai_client)
-            return agent.acquire_media(script, scored_story.story, accent_color)
+            return agent.acquire_media(script, scored_story.story)
 
         def _generate_tts():
             if youtube_only_mode:
@@ -520,22 +543,28 @@ class Pipeline:
                 render_audio_path = yt_audio_path
                 logger.info(f"YouTube audio (untrimmed) used for video render")
 
-        # Step 6: Video duration — script estimate when using YouTube, TTS duration otherwise
+        # Step 6: Video duration — measure the actual render audio when possible.
+        # script.estimated_duration_seconds is only an LLM estimate; trusting it
+        # unconditionally in YouTube mode risks a video/audio mismatch (silently
+        # truncated by -shortest) whenever the real trimmed/untrimmed YouTube
+        # audio duration differs from that estimate.
         if yt_audio_path and Path(yt_audio_path).exists():
-            audio_duration = script.estimated_duration_seconds
+            audio_duration = self._get_audio_duration(render_audio_path) or script.estimated_duration_seconds
         else:
             audio_duration = self._get_audio_duration(audio_path) or script.estimated_duration_seconds
         logger.info(f"Video duration: {audio_duration:.1f}s")
 
-        # Step 7: Caption timestamps
-        # YouTube mode: estimated timestamps (instant) — AI script overlaid on YouTube footage
-        # TTS mode: Whisper alignment on TTS audio (25-45s, fast, matches spoken words)
+        # Step 7: Caption timestamps — always Whisper-aligned to whatever audio
+        # actually plays (render_audio_path), so captions say what's heard.
+        # YouTube mode used to overlay the AI script's text on a timeline
+        # estimated by word count, while the real audio was the YouTube
+        # creator's own speech — captions and audio said different things.
+        # render_audio_path is already trimmed to script-length (~25-45s) by
+        # this point, so this is no slower than the TTS-mode alignment below.
+        # The hook badge (script.hook_card) is unaffected — it's drawn
+        # separately from these captions and stays the AI's own unique hook.
         logger.info("Aligning captions...")
-        if yt_audio_path and Path(yt_audio_path).exists():
-            word_timestamps = self.aligner._estimate_timestamps(script.full_script, render_audio_path)
-            logger.info(f"Using estimated caption timestamps ({len(word_timestamps)} words, no Whisper needed)")
-        else:
-            word_timestamps = self.aligner.align_audio(audio_path, script.full_script)
+        word_timestamps = self.aligner.align_audio(render_audio_path, script.full_script)
         caption_lines = self.caption_formatter.create_caption_lines(word_timestamps)
 
         # Step 8: Export caption files
@@ -572,7 +601,7 @@ class Pipeline:
                 accent_color=accent_color,
                 channel_name=self.channel_name,
                 source_name=story.source_name,
-                cta_text=self.distribution.get("cta_prompt", "Get the daily AI briefing >>"),
+                cta_text=self.distribution.get("cta_prompt", "Get the daily crypto briefing >>"),
                 cta_link=self.distribution.get("link", "bit.ly/neural-drop"),
                 cta_duration=self.distribution.get("cta_duration_seconds", 3.5),
                 show_cta=self.distribution.get("show_cta_overlay", True),
@@ -824,7 +853,10 @@ class Pipeline:
                 source_name="Custom",
                 content="Custom"
             )
-            media_paths = broll_agent.acquire_media(script, story, accent_color)
+            # acquire_media returns (media_paths, broll_source, yt_audio_path) —
+            # this was assigning the whole 3-tuple to media_paths, which
+            # render() then tried to call .items() on further down.
+            media_paths, _, _ = broll_agent.acquire_media(script, story)
         else:
             # Use existing media
             media_paths = {}
@@ -854,7 +886,7 @@ class Pipeline:
             channel_name=self.channel_name,
             source_name="",
             progress_callback=progress_callback,
-            cta_text=self.distribution.get("cta_prompt", "Get the daily AI briefing >>"),
+            cta_text=self.distribution.get("cta_prompt", "Get the daily crypto briefing >>"),
             cta_link=self.distribution.get("link", "bit.ly/neural-drop"),
             cta_duration=self.distribution.get("cta_duration_seconds", 3.5),
             show_cta=self.distribution.get("show_cta_overlay", True),

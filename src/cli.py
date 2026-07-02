@@ -176,7 +176,7 @@ def render(ctx, script):
     )
     console.print("[cyan]Acquiring B-Roll Media...[/cyan]")
     broll_agent = SmartBRollAgent(str(package_dir), pipeline.openai_client)
-    media_paths = broll_agent.acquire_media(script_obj, story, accent_color)
+    media_paths, _, _ = broll_agent.acquire_media(script_obj, story)
 
     console.print("[cyan]Rendering video frames...[/cyan]")
     paths = pipeline.video_renderer.render(
