@@ -1,9 +1,14 @@
-name: Neural Drop Daily Pipeline
+name: Neural Drop Daily Pipeline (manual only)
 
+# Schedule disabled — this workflow duplicated daily_news.yml (same run_daily.py
+# entrypoint) on its own daily cron, but is missing daily_news.yml's production
+# config: no ORACLE_PROXY_URL/SECRET, no YOUTUBE_COOKIES_B64, no YOUTUBE_BROLL_ONLY,
+# no ELEVENLABS_API_KEY, and no dedup-DB cache restore step. Running both on a
+# schedule meant a second, lower-quality pass (TTS forced on, edge-tts's
+# 48kbps fallback more likely, more YouTube download failures on GitHub's IPs)
+# that could independently discover and publish overlapping stories. Kept as
+# workflow_dispatch for manual/diagnostic runs.
 on:
-  schedule:
-    # 1:00 AM Central Time = 06:00 UTC (CDT/UTC-5)
-    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       count:
@@ -83,11 +88,6 @@ jobs:
           OPENAI_API_KEY: placeholder
           NEWSDATA_API_KEY: ${{ secrets.NEWSDATA_API_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-          COVERR_API_KEY_1: ${{ secrets.COVERR_API_KEY_1 }}
-          COVERR_API_KEY_2: ${{ secrets.COVERR_API_KEY_2 }}
-          COVERR_API_KEY_3: ${{ secrets.COVERR_API_KEY_3 }}
           NVIDIA_API_KEY_1: ${{ secrets.NVIDIA_API_KEY_1 }}
           NVIDIA_API_KEY_2: ${{ secrets.NVIDIA_API_KEY_2 }}
           NVIDIA_API_KEY_3: ${{ secrets.NVIDIA_API_KEY_3 }}

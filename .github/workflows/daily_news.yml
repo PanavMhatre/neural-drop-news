@@ -2,8 +2,13 @@ name: Daily Crypto News
 
 on:
   schedule:
-    # 7:00 AM CT (CDT) = 12:00 UTC
-    - cron: '0 12 * * *'
+    # 12:00 AM CT / midnight (CDT) = 05:00 UTC — moved 7h earlier to give the
+    # heavier "veryslow" x264 preset + full-fps render (max quality, see
+    # src/video/compositor.py) plenty of runway before GitHub's 6h hard cap
+    # on hosted-runner job execution time. (daily_pipeline.yml used to also
+    # run on its own schedule an hour after this one — its cron is now
+    # disabled since it duplicated this pipeline with stale/incomplete config.)
+    - cron: '0 5 * * *'
   workflow_dispatch:
     inputs:
       count:
@@ -26,7 +31,9 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    # 360 = GitHub's hard ceiling for hosted-runner jobs; setting it any
+    # higher has no effect, GitHub kills the job at 6h regardless.
+    timeout-minutes: 360
 
     steps:
       # ── Checkout ──────────────────────────────────────────────────────────
@@ -105,11 +112,6 @@ jobs:
           ORACLE_PROXY_URL:         ${{ secrets.ORACLE_PROXY_URL }}
           ORACLE_PROXY_SECRET:      ${{ secrets.ORACLE_PROXY_SECRET }}
           YOUTUBE_BROLL_ONLY:       "true"
-          PEXELS_API_KEY:           ${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY:          ${{ secrets.PIXABAY_API_KEY }}
-          COVERR_API_KEY_1:         ${{ secrets.COVERR_API_KEY_1 }}
-          COVERR_API_KEY_2:         ${{ secrets.COVERR_API_KEY_2 }}
-          COVERR_API_KEY_3:         ${{ secrets.COVERR_API_KEY_3 }}
           NVIDIA_API_KEY_1:         ${{ secrets.NVIDIA_API_KEY_1 }}
           NVIDIA_API_KEY_2:         ${{ secrets.NVIDIA_API_KEY_2 }}
           NVIDIA_API_KEY_3:         ${{ secrets.NVIDIA_API_KEY_3 }}
