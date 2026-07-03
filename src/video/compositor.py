@@ -37,6 +37,14 @@ class FrameCompositor:
         self.height = height
         self.fps = fps
         self.font_dir = Path(font_dir)
+        # Every absolute pixel constant in this file (stroke widths, margins,
+        # anchor offsets) was tuned by eye at the original 1080-wide design
+        # baseline. Multiplying by this factor keeps them the same PROPORTION
+        # of the frame at any render resolution — without it, rendering at
+        # e.g. 2160x3840 keeps every stroke/margin/badge at its old absolute
+        # pixel size, so everything looks proportionally tiny and cramped on
+        # the larger canvas instead of genuinely sharper.
+        self.scale = self.width / 1080.0
 
         # Load fonts
         self._fonts: dict[str, ImageFont.FreeTypeFont] = {}
@@ -77,14 +85,14 @@ class FrameCompositor:
         base_path = bold_path or regular_path
 
         if base_path:
-            self._fonts["hook"] = elem.get_font(base_path, 72)
-            self._fonts["body"] = elem.get_font(base_path, 44)
-            self._fonts["caption"] = elem.get_font(base_path, 56)
-            self._fonts["source"] = elem.get_font(regular_path or base_path, 22)
-            self._fonts["watermark"] = elem.get_font(regular_path or base_path, 18)
-            self._fonts["cta"] = elem.get_font(base_path, 36)
-            self._fonts["cta_brand"] = elem.get_font(base_path, 64)
-            self._fonts["cta_tagline"] = elem.get_font(regular_path or base_path, 28)
+            self._fonts["hook"] = elem.get_font(base_path, int(72 * self.scale))
+            self._fonts["body"] = elem.get_font(base_path, int(44 * self.scale))
+            self._fonts["caption"] = elem.get_font(base_path, int(56 * self.scale))
+            self._fonts["source"] = elem.get_font(regular_path or base_path, int(22 * self.scale))
+            self._fonts["watermark"] = elem.get_font(regular_path or base_path, int(18 * self.scale))
+            self._fonts["cta"] = elem.get_font(base_path, int(36 * self.scale))
+            self._fonts["cta_brand"] = elem.get_font(base_path, int(64 * self.scale))
+            self._fonts["cta_tagline"] = elem.get_font(regular_path or base_path, int(28 * self.scale))
         else:
             # Fall back to default font at various sizes
             default = ImageFont.load_default()
@@ -101,7 +109,7 @@ class FrameCompositor:
         caption_lines: list[CaptionLine],
         media_paths: dict[str, str],
         total_duration: float,
-        channel_name: str = "TechPulse Shorts",
+        channel_name: str = "Neural Drop",
         source_text: str = "",
         show_progress_bar: bool = True,
         progress_callback = None,
@@ -191,19 +199,37 @@ class FrameCompositor:
                 except Exception as e:
                     logger.warning(f"Failed to load media for {section}: {e}")
 
-        # Update font sizes from template
+        # Update font sizes from template — config/template values are design
+        # baseline sizes (tuned at 1080 width), scaled here to the actual
+        # render resolution.
         self._fonts["hook"] = elem.get_font(
-            self._get_font_path("bold"), template.hook_font_size
+            self._get_font_path("bold"), int(template.hook_font_size * self.scale)
         )
         self._fonts["body"] = elem.get_font(
-            self._get_font_path("bold"), template.body_font_size
+            self._get_font_path("bold"), int(template.body_font_size * self.scale)
         )
         # Use Anton (Impact-style) for captions if available, else fall back to bold
         caption_font_path = self._anton_path if Path(self._anton_path).exists() else self._get_font_path("bold")
-        self._fonts["caption"] = elem.get_font(caption_font_path, template.caption_font_size)
+        self._fonts["caption"] = elem.get_font(caption_font_path, int(template.caption_font_size * self.scale))
 
         # Build section timeline
         sections = self._build_section_timeline(script, total_duration)
+
+        # For each source file, find the earliest section start time that
+        # uses it. A path used by only one section (the common case now that
+        # smart_broll.py matches/trims a distinct clip per section) should
+        # play from ITS OWN beginning when that section starts — not from
+        # whatever position the absolute render timeline happens to be at,
+        # which for a short clip wraps around via modulo to a essentially
+        # random-looking offset. A path shared by multiple sections (e.g. no
+        # match was found and the full source video was reused as a
+        # fallback) keeps advancing continuously across all of them, same as
+        # before, since they all share the same earliest start time.
+        path_first_start: dict[str, float] = {}
+        for sec in sections:
+            path = media_paths.get(sec["name"])
+            if path and (path not in path_first_start or sec["start"] < path_first_start[path]):
+                path_first_start[path] = sec["start"]
 
         # Start FFmpeg process
         ffmpeg_cmd = self._build_ffmpeg_command(output_path, audio_path, total_duration, render_fps)
@@ -234,6 +260,7 @@ class FrameCompositor:
                     video_fps_map=video_fps_map,
                     video_frame_cache=video_frame_cache,
                     video_crop_fraction=video_crop_fraction,
+                    path_first_start=path_first_start,
                     channel_name=channel_name,
                     source_text=source_text,
                     show_progress_bar=show_progress_bar,
@@ -310,6 +337,7 @@ class FrameCompositor:
         video_fps_map: dict[str, float],
         video_frame_cache: dict[str, tuple[int, Optional[Image.Image]]],
         video_crop_fraction: dict[str, float],
+        path_first_start: dict[str, float],
         channel_name: str,
         source_text: str,
         show_progress_bar: bool,
@@ -340,16 +368,22 @@ class FrameCompositor:
                 # causing visible jumps — sequential reads are both faster
                 # and frame-accurate.
                 #
-                # Position is driven by the ABSOLUTE render timeline (frame_time),
-                # not time-since-this-section-started. Multiple sections can share
-                # one long source video (e.g. a single YouTube b-roll clip reused
-                # across every section) via a shared decoder keyed by path — using
-                # section-relative time here would reset every section back to the
-                # start of the source, so every section replayed the same opening
-                # few seconds instead of the source advancing across the whole video.
+                # Position is relative to when THIS source file first came into
+                # use (path_first_start), not the raw render timeline. A path
+                # shared by multiple sections (no per-section match found, so
+                # the full source video was reused as a fallback) has its
+                # earliest section as that reference point, so it keeps
+                # advancing continuously across all of them — same as using
+                # absolute frame_time. But a path used by only one section
+                # (the common case: smart_broll.py now trims a distinct,
+                # content-matched clip per section) plays from ITS OWN start
+                # when that section begins, instead of seeking into whatever
+                # position the absolute timeline's modulo happens to land on
+                # for a clip that's only a few seconds long.
                 src_fps = video_fps_map.get(cand_path, 30.0)
                 total_src_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 1)
-                target_frame = int(frame_time * src_fps) % max(total_src_frames, 1)
+                clip_time = max(0.0, frame_time - path_first_start.get(cand_path, 0.0))
+                target_frame = int(clip_time * src_fps) % max(total_src_frames, 1)
 
                 last_idx, last_pil = video_frame_cache.get(cand_path, (-1, None))
 
@@ -461,8 +495,17 @@ class FrameCompositor:
             # frame is never a plain empty color.
             self._draw_motion_background(img, frame_time, accent_color, template)
 
-        # Hook text — persistent white stroke label at top, always visible
-        hook_opacity = anim.fade_in(frame_time, 0.0, duration=0.3)
+        # Hook card — a brief attention-grabbing flash, NOT a persistent overlay.
+        # This previously had no fade-out at all (only fade_in), so the hook
+        # text stayed pinned on screen for the entire video — visible the
+        # whole time behind/alongside captions that had already moved on to
+        # completely different words, which read as broken/glitchy since two
+        # unrelated headlines appeared to be showing at once. 2.5s is enough
+        # to read a 4-6 word hook card before it hands off to captions.
+        HOOK_CARD_DURATION = 2.5
+        hook_opacity = anim.fade_in(frame_time, 0.0, duration=0.3) * anim.fade_out(
+            frame_time, HOOK_CARD_DURATION, duration=0.4
+        )
         if hook_opacity > 0.05:
             hook_display = script.hook_card if script.hook_card else script.sections.hook
             self._draw_hook_badge(img, hook_display, self._fonts["hook"], hook_opacity, accent_color)
@@ -505,6 +548,7 @@ class FrameCompositor:
             font=self._fonts["watermark"],
             position="top_right",
             color=(60, 60, 80),
+            scale=self.scale,
         )
 
         # 8. Progress bar
@@ -514,14 +558,14 @@ class FrameCompositor:
                 img,
                 progress=progress,
                 accent_color=accent_color,
-                bar_height=4,
+                bar_height=max(1, int(4 * self.scale)),
             )
 
         # 9. Persistent Neural Drop CTA Pill
         if show_cta:
             # Fade in quickly at the beginning, fade out at the very end
             pill_opacity = anim.fade_in(frame_time, 0.0, duration=0.5) * anim.fade_out(frame_time, total_duration - 0.5, duration=0.5)
-            
+
             if pill_opacity > 0.05:
                 pill_y = int(self.height * 0.75) # Just above the captions
                 elem.draw_persistent_pill(
@@ -532,6 +576,7 @@ class FrameCompositor:
                     accent_color=accent_color,
                     y_position=pill_y,
                     opacity=pill_opacity,
+                    scale=self.scale,
                 )
 
         return img
@@ -621,8 +666,8 @@ class FrameCompositor:
         """Hook card at top — wraps to fit width, white with black stroke."""
         from PIL import ImageDraw
         w, h = img.size
-        stroke_w = 5
-        max_w = w - 240  # narrower → shorter lines, more wrapping
+        stroke_w = max(1, int(5 * self.scale))
+        max_w = w - int(240 * self.scale)  # narrower → shorter lines, more wrapping
         # hook_card is already 4-6 words; just uppercase and cap at 10 words for safety
         words = hook_text.upper().split()[:10]
 
@@ -639,10 +684,11 @@ class FrameCompositor:
         if line:
             lines.append(" ".join(line))
 
-        line_h = font.getbbox("A")[3] + 6
+        line_h = font.getbbox("A")[3] + int(6 * self.scale)
         total_h = len(lines) * line_h
-        # Anchor bottom of hook text block at y=560, grow upward
-        bottom_y = 560
+        # Anchor bottom of hook text block proportionally (560/1920 of the
+        # 1080x1920 design baseline), grow upward
+        bottom_y = int(560 * self.scale)
         y = bottom_y - total_h
 
         # Draw on a transparent overlay so `opacity` actually fades the badge in —
@@ -690,7 +736,9 @@ class FrameCompositor:
             cb = int(18 + t * max(0, b // 8))
             draw.line([(0, y), (w, y)], fill=(cr, cg, cb))
 
-        # 2. Floating orbs — 5 blobs that drift slowly
+        # 2. Floating orbs — 5 blobs that drift slowly (radii are absolute
+        # pixel constants tuned at the 1080-wide baseline, scaled to keep
+        # the same proportional size at any render resolution)
         orb_params = [
             (0.25, 0.30, 0.55, 0.7, 260),
             (0.72, 0.55, 0.40, 0.9, 200),
@@ -698,27 +746,29 @@ class FrameCompositor:
             (0.15, 0.75, 0.45, 0.6, 180),
             (0.80, 0.20, 0.50, 0.8, 240),
         ]
+        orb_layer_step = max(1, int(20 * self.scale))
         orb_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         od = ImageDraw.Draw(orb_layer)
-        for i, (bx, by, spd, amp, rad) in enumerate(orb_params):
+        for i, (bx, by, spd, amp, rad_base) in enumerate(orb_params):
+            rad = int(rad_base * self.scale)
             phase = i * 1.3
             cx = int((bx + math.sin(frame_time * spd + phase) * 0.10 * amp / 100) * w)
             cy = int((by + math.cos(frame_time * spd * 0.7 + phase) * 0.08 * amp / 100) * h)
             # Draw a soft orb by stacking semi-transparent ellipses
-            for layer_r in range(rad, 0, -20):
+            for layer_r in range(rad, 0, -orb_layer_step):
                 alpha = int(18 * (1 - layer_r / rad))
                 od.ellipse(
                     [cx - layer_r, cy - layer_r, cx + layer_r, cy + layer_r],
                     fill=(r, g, b, alpha),
                 )
 
-        blurred_orbs = orb_layer.filter(ImageFilter.GaussianBlur(radius=40))
+        blurred_orbs = orb_layer.filter(ImageFilter.GaussianBlur(radius=max(1, int(40 * self.scale))))
         img.paste(Image.alpha_composite(img.convert("RGBA"), blurred_orbs).convert("RGB"))
 
         # 3. Subtle grid lines for a "data / tech" feel
         draw2 = ImageDraw.Draw(img)
         grid_alpha = 18
-        grid_spacing = 120
+        grid_spacing = max(1, int(120 * self.scale))
         for gx in range(0, w, grid_spacing):
             draw2.line([(gx, 0), (gx, h)], fill=(r // 4, g // 4, b // 4 + 10))
         for gy in range(0, h, grid_spacing):
@@ -769,21 +819,36 @@ class FrameCompositor:
             return bb[2] - bb[0]
 
         space_w = word_w(" ")
-        total_w = sum(word_w(w) for _, w in display) + space_w * (len(display) - 1)
+        max_w = width - int(80 * self.scale)
 
-        # Break into 2 lines only if truly needed
-        max_w = width - 80
-        if total_w > max_w:
-            mid = len(display) // 2
-            lines = [display[:mid], display[mid:]]
-        else:
-            lines = [display]
+        # Greedy word-wrap — guarantees every rendered line actually fits
+        # max_w. The previous logic split at the midpoint WORD INDEX
+        # (len(display) // 2) whenever the combined width was too wide, but
+        # word count and pixel width don't scale together (one long ticker/
+        # dollar-amount token vs. several short words) — so a "half" could
+        # still overflow past both screen edges with no fallback, which read
+        # as text getting cut off / glitching mid-word.
+        lines: list[list[tuple[int, str]]] = []
+        current: list[tuple[int, str]] = []
+        current_w = 0
+        for idx, word in display:
+            w = word_w(word)
+            added_w = w if not current else w + space_w
+            if current and current_w + added_w > max_w:
+                lines.append(current)
+                current = [(idx, word)]
+                current_w = w
+            else:
+                current.append((idx, word))
+                current_w += added_w
+        if current:
+            lines.append(current)
 
-        line_h = font.getbbox("A")[3] + 12
+        line_h = font.getbbox("A")[3] + int(12 * self.scale)
         total_lines_h = len(lines) * line_h
         base_y = int(height * 0.72) - total_lines_h // 2
 
-        stroke_w = 6  # thick black outline like TikTok
+        stroke_w = max(1, int(6 * self.scale))  # thick black outline like TikTok
 
         # Draw on a transparent overlay so `opacity` actually fades captions
         # in/out — drawing straight onto `img` (RGB) ignored the alpha channel
@@ -818,10 +883,19 @@ class FrameCompositor:
         in_fps = render_fps or self.fps
         # Highest quality x264 preset that still has a real payoff — beyond
         # "veryslow" (i.e. "placebo") the encoding-time cost stops buying any
-        # visible quality, per x264's own docs. Uploads are not time-constrained
-        # here (see run_daily.py / GitHub Actions timeout budget), so there's
-        # no reason to trade quality for speed on the final encode.
-        preset = "veryslow"
+        # visible quality, per x264's own docs.
+        #
+        # At a higher-than-1080-baseline canvas (e.g. 2160x3840 "4K"),
+        # encode time scales with pixel count — 4x the pixels is roughly
+        # 4-6x longer at the same preset (measured: a 1080x1920 video at
+        # veryslow took ~5.4min to encode on a real GitHub Actions runner).
+        # For count=7/day against a hard 6h ceiling, running veryslow at 4x
+        # the resolution risks not finishing. "slower" is one step down —
+        # x264's own benchmarks put the quality delta between slower and
+        # veryslow at a fraction of a percent in bitrate efficiency at this
+        # CRF, invisible to the eye, while meaningfully protecting the time
+        # budget the higher resolution is now spending instead.
+        preset = "veryslow" if self.scale <= 1.0 else "slower"
 
         # Loudness-normalize to the -14 LUFS integrated target every major
         # platform (YouTube, TikTok, Instagram, Spotify) recommends, then a
@@ -851,12 +925,13 @@ class FrameCompositor:
             # modern platform (YouTube, TikTok, Instagram, Buffer) accepts it.
             "-level", "5.2",
             # Pair the raised level with an explicit VBV cap well above anything
-            # CRF 15 on 1080x1920@30fps busy footage actually produces (a few
-            # tens of Mbps) — without -maxrate/-bufsize, CRF has no rate-control
-            # ceiling at all, so a pathological scene could in principle emit a
-            # bitstream that violates the very VBV limits -level 5.2 declares.
-            "-maxrate", "50M",
-            "-bufsize", "100M",
+            # CRF 15 busy footage actually produces, scaled with resolution —
+            # a detail-dense 4K frame at near-lossless CRF genuinely wants more
+            # bitrate headroom than 1080p does. Kept comfortably under H.264
+            # High@5.2's real ceiling (~300Mbps) rather than scaling the full
+            # 4x with pixel count, to stay unambiguously spec-compliant.
+            "-maxrate", f"{int(50 * max(1.0, self.scale ** 2 * 0.75))}M",
+            "-bufsize", f"{int(100 * max(1.0, self.scale ** 2 * 0.75))}M",
             "-preset", preset,
             "-crf", "15",          # near-lossless; going lower has no visible
                                     # payoff since every platform re-encodes on ingest
@@ -905,12 +980,14 @@ def generate_thumbnail(
     template: TemplateConfig,
     accent_color: tuple[int, int, int],
     hook_text: str,
-    channel_name: str = "TechPulse Shorts",
+    channel_name: str = "Neural Drop",
     width: int = 1080,
     height: int = 1920,
 ) -> str:
     """Generate a thumbnail / opening frame image."""
     img = Image.new("RGB", (width, height))
+    # Same 1080-baseline scaling as FrameCompositor — see its __init__ comment.
+    scale = width / 1080.0
 
     # Background
     if template.use_gradient:
@@ -922,7 +999,7 @@ def generate_thumbnail(
     if template.show_glow:
         elem.draw_glow(
             img, width // 2, int(height * 0.35),
-            accent_color, radius=template.glow_radius, opacity=0.12,
+            accent_color, radius=template.glow_radius, opacity=0.12, scale=scale,
         )
 
     # Card
@@ -933,6 +1010,7 @@ def generate_thumbnail(
             y_end=int(height * 0.62),
             accent_color=accent_color,
             opacity=template.card_opacity,
+            scale=scale,
         )
 
     # Accent line
@@ -941,6 +1019,7 @@ def generate_thumbnail(
             img, accent_color,
             y_position=int(height * (template.hook_y_ratio - 0.05)),
             line_width=template.accent_line_width,
+            scale=scale,
         )
 
     # Hook text
@@ -955,17 +1034,18 @@ def generate_thumbnail(
             font_path = fp
             break
 
-    hook_font = elem.get_font(font_path, template.hook_font_size)
+    hook_font = elem.get_font(font_path, int(template.hook_font_size * scale))
     elem.draw_text_centered(
         img, hook_text, hook_font,
         int(height * template.hook_y_ratio),
         color=accent_color,
-        max_width=width - 80,
+        max_width=width - int(80 * scale),
+        scale=scale,
     )
 
     # Watermark
-    watermark_font = elem.get_font(font_path, 18)
-    elem.draw_watermark(img, channel_name, watermark_font)
+    watermark_font = elem.get_font(font_path, int(18 * scale))
+    elem.draw_watermark(img, channel_name, watermark_font, scale=scale)
 
     # Save
     output_file = Path(output_path)
