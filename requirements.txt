@@ -19,7 +19,7 @@ whisper-timestamped>=1.15.0
 # Video Rendering
 Pillow>=10.3.0
 ffmpeg-python>=0.2.0
-opencv-python-headless>=4.8.0
+opencv-python-headless>=4.8.0,<5.0.0  # 5.0.0.93 dropped/changed cv2.CascadeClassifier — confirmed broken in CI (AttributeError), 4.x confirmed working locally
 numpy>=1.26.0
 
 # Video download
