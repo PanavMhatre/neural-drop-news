@@ -6,7 +6,7 @@
 # ============================================================================
 
 channel:
-  name: "TechPulse Shorts"
+  name: "Neural Drop"
   tagline: "Fast crypto and digital-asset news for traders, builders, and curious newcomers."
   daily_video_limit: 5
 
@@ -125,8 +125,13 @@ captions:
 # Video Rendering
 # ---------------------------------------------------------------------------
 video:
-  width: 1080
-  height: 1920
+  # 4K vertical (2160x3840 = 2x linear / 4x pixel count of the 1080x1920
+  # baseline). All font sizes, stroke widths, and margins throughout
+  # src/video/ scale proportionally from that baseline automatically
+  # (FrameCompositor.scale = width / 1080) — no other config value here
+  # needs to change when this does.
+  width: 2160
+  height: 3840
   fps: 30
   quality: "high"                 # "low" (fast), "medium", "high"
 
