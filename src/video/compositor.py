@@ -133,7 +133,20 @@ class FrameCompositor:
         if t.is_alive():
             logger.error(f"FFmpeg stdin write timed out after {timeout}s — killing the encoder, aborting this render")
             process.kill()
-            raise RuntimeError(f"FFmpeg stopped consuming frames (write blocked >{timeout}s) — encoder likely stalled")
+            # Drain whatever ffmpeg had already written to stderr before it
+            # died — this is the only way to see WHY it stalled (OOM,
+            # internal error, etc.) instead of just that it did. Safe to
+            # call communicate() now (unlike before the kill): the process
+            # is dead, so its pipes hit EOF immediately rather than blocking.
+            stderr_tail = ""
+            try:
+                _, stderr_bytes = process.communicate(timeout=10)
+                if stderr_bytes:
+                    stderr_tail = stderr_bytes.decode(errors="replace")[-1000:]
+            except Exception as drain_err:
+                stderr_tail = f"(could not drain stderr: {drain_err})"
+            logger.error(f"FFmpeg stderr at time of stall:\n{stderr_tail}")
+            raise RuntimeError(f"FFmpeg stopped consuming frames (write blocked >{timeout}s) — encoder likely stalled. stderr: {stderr_tail[-300:]}")
         if isinstance(result[0], Exception):
             raise result[0]
 
@@ -1023,12 +1036,36 @@ class FrameCompositor:
             # Pair the raised level with an explicit VBV cap well above anything
             # CRF 15 busy footage actually produces, scaled with resolution —
             # a detail-dense 4K frame at near-lossless CRF genuinely wants more
-            # bitrate headroom than 1080p does. Kept comfortably under H.264
-            # High@5.2's real ceiling (~300Mbps) rather than scaling the full
-            # 4x with pixel count, to stay unambiguously spec-compliant.
-            "-maxrate", f"{int(50 * max(1.0, self.scale ** 2 * 0.75))}M",
-            "-bufsize", f"{int(100 * max(1.0, self.scale ** 2 * 0.75))}M",
+            # bitrate headroom than 1080p does.
+            #
+            # This was originally set much tighter (150M/300M at 4K) out of
+            # over-caution about staying under H.264 High@5.2's real ceiling
+            # (~300Mbps) — but a maxrate this close to what CRF 15 actually
+            # wants for busy 4K content forces x264's rate control to fight
+            # the cap on every such frame, which is a well-known way to
+            # induce severe encoder slowdown. Every 4K test render has
+            # stalled at almost exactly the same point regardless of video
+            # content, which points at a systematic encoder-side issue like
+            # this rather than per-content bad luck. Raised well clear of
+            # anything CRF 15 should realistically need, while keeping the
+            # explicit cap (removing it entirely reintroduces the risk of an
+            # out-of-spec bitstream that motivated adding one in the first
+            # place). Couldn't confirm the exact High@5.2 MaxBR figure from
+            # the spec directly, so staying meaningfully under my own
+            # earlier ~300Mbps estimate rather than pushing close to it.
+            "-maxrate", f"{int(50 * max(1.0, self.scale ** 2))}M",
+            "-bufsize", f"{int(100 * max(1.0, self.scale ** 2))}M",
             "-preset", preset,
+            # Bound x264's lookahead buffer explicitly — at 4K each buffered
+            # lookahead frame is a meaningfully large internal allocation,
+            # and the default for "slower"/"veryslow" (~40-60 frames) adds
+            # up fast. This is a plausible contributor to the stalls above
+            # (memory pressure building up over the render, not a fixed
+            # frame count, hence stalling at a similar point regardless of
+            # video length/content) — reducing it is a low-cost hedge
+            # either way, with minimal quality impact given -bf 2 already
+            # keeps the B-frame count modest.
+            "-x264-params", "rc-lookahead=20",
             "-crf", "15",          # near-lossless; going lower has no visible
                                     # payoff since every platform re-encodes on ingest
             "-bf", "2",            # B-frames for better compression at same quality
