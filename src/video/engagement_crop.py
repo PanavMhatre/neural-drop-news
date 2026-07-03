@@ -5,6 +5,31 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+_face_cascade: cv2.CascadeClassifier | None = None
+
+
+def _get_face_cascade() -> cv2.CascadeClassifier:
+    """Lazy-load once — the Haar cascade XML ships inside opencv-python(-headless)
+    itself, no extra download or dependency needed."""
+    global _face_cascade
+    if _face_cascade is None:
+        path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        _face_cascade = cv2.CascadeClassifier(path)
+    return _face_cascade
+
+
+def _detect_face_x_centers(frame_bgr: np.ndarray) -> list[float]:
+    """Return face-center x-positions in the ORIGINAL frame's pixel coordinates."""
+    h, w = frame_bgr.shape[:2]
+    # Downscale for speed — Haar cascades are already fast, but detection
+    # accuracy doesn't need full resolution and this runs on every sampled frame.
+    detect_w = 480
+    scale = detect_w / w if w > detect_w else 1.0
+    small = cv2.resize(frame_bgr, (int(w * scale), int(h * scale))) if scale != 1.0 else frame_bgr
+    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+    faces = _get_face_cascade().detectMultiScale(gray, scaleFactor=1.15, minNeighbors=5, minSize=(30, 30))
+    return [(x + fw / 2) / scale for (x, y, fw, fh) in faces]
+
 
 def _frame_score(gray: np.ndarray) -> float:
     edges = cv2.Laplacian(gray, cv2.CV_64F).var()
@@ -48,6 +73,13 @@ def engagement_crop_x(
     best one as a 0.0-1.0 fraction of the available crop range (0.0 = left
     edge, 0.5 = center, 1.0 = right edge) — independent of whatever actual
     scale (including any zoom effect) a caller later renders at.
+
+    If a face is detected in the sampled frames, it takes priority over the
+    detail/motion heuristic — a landscape source with a person centered in a
+    wide shot was otherwise getting cropped to whatever background object had
+    the most texture, sometimes cutting the actual speaker out of frame
+    entirely. Falls back to the detail/motion score when no face is found
+    (charts, screen recordings, b-roll with no people in it).
     """
     frames = _sample_frames(Path(video_path), start=start, duration=duration)
     if not frames:
@@ -58,6 +90,18 @@ def engagement_crop_x(
     max_x = max(0, scaled_w - target_w)
     if max_x <= 0:
         return 0.5
+
+    face_x_centers: list[float] = []
+    for frame in frames:
+        face_x_centers.extend(_detect_face_x_centers(frame))
+    if face_x_centers:
+        # Median is robust to an occasional false-positive detection —
+        # center the crop window on where faces actually are, in the same
+        # scaled coordinate space the candidates below use.
+        face_x_scaled = float(np.median(face_x_centers)) * (scaled_w / width)
+        best_x = int(round(face_x_scaled - target_w / 2))
+        best_x = max(0, min(best_x, max_x))
+        return best_x / max_x
 
     candidate_count = 9
     candidates = np.linspace(0, max_x, candidate_count)
