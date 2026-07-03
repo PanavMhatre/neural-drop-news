@@ -104,10 +104,20 @@ def draw_watermark(
     position: str = "top_right",
     color: tuple[int, int, int] = (80, 80, 100),
     margin: int = 30,
+    scale: float = 1.0,
 ) -> None:
-    """Draw a small channel watermark."""
+    """Draw a small channel watermark.
+
+    `scale` (canvas width / 1080 design baseline) keeps the margin a
+    consistent PROPORTION of the frame at any render resolution — otherwise
+    a fixed pixel margin becomes visually tiny/cramped at higher resolutions
+    (e.g. a 4K canvas is 2x the pixels of the 1080 baseline this default was
+    tuned for).
+    """
     draw = ImageDraw.Draw(img)
     width, height = img.size
+    margin = int(margin * scale)
+    bottom_offset = int(30 * scale)
 
     bbox = font.getbbox(text)
     text_width = bbox[2] - bbox[0]
@@ -120,10 +130,10 @@ def draw_watermark(
         y = margin
     elif position == "bottom_right":
         x = width - text_width - margin
-        y = height - margin - 30
+        y = height - margin - bottom_offset
     else:
         x = margin
-        y = height - margin - 30
+        y = height - margin - bottom_offset
 
     draw.text((x, y), text, fill=color, font=font)
 
@@ -135,10 +145,12 @@ def draw_accent_line(
     line_width: int = 4,
     margin: int = 60,
     length_ratio: float = 0.3,
+    scale: float = 1.0,
 ) -> None:
-    """Draw a decorative accent line."""
+    """Draw a decorative accent line. See draw_watermark for `scale`."""
     draw = ImageDraw.Draw(img)
     width, _ = img.size
+    line_width = max(1, int(line_width * scale))
 
     line_length = int(width * length_ratio)
     x_start = (width - line_length) // 2
@@ -158,9 +170,12 @@ def draw_card(
     opacity: float = 0.12,
     margin: int = 40,
     corner_radius: int = 20,
+    scale: float = 1.0,
 ) -> None:
-    """Draw a semi-transparent card background."""
+    """Draw a semi-transparent card background. See draw_watermark for `scale`."""
     width, _ = img.size
+    margin = int(margin * scale)
+    corner_radius = int(corner_radius * scale)
 
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
@@ -184,8 +199,10 @@ def draw_glow(
     accent_color: tuple[int, int, int],
     radius: int = 100,
     opacity: float = 0.15,
+    scale: float = 1.0,
 ) -> None:
-    """Draw a soft glow effect around a point."""
+    """Draw a soft glow effect around a point. See draw_watermark for `scale`."""
+    radius = int(radius * scale)
     glow = Image.new("RGBA", img.size, (0, 0, 0, 0))
     glow_draw = ImageDraw.Draw(glow)
 
@@ -199,7 +216,7 @@ def draw_glow(
     )
 
     # Blur for soft glow
-    glow = glow.filter(ImageFilter.GaussianBlur(radius=radius // 2))
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=max(1, radius // 2)))
 
     img.paste(Image.alpha_composite(img.convert("RGBA"), glow).convert("RGB"))
 
@@ -215,6 +232,7 @@ def draw_text_centered(
     shadow: bool = True,
     shadow_offset: int = 3,
     line_spacing: int = 12,
+    scale: float = 1.0,
 ) -> int:
     """
     Draw centered text with optional wrapping, shadow, and opacity.
@@ -223,9 +241,11 @@ def draw_text_centered(
     """
     draw = ImageDraw.Draw(img)
     width, _ = img.size
+    shadow_offset = int(shadow_offset * scale)
+    line_spacing = int(line_spacing * scale)
 
     if max_width is None:
-        max_width = width - 100  # Default margins
+        max_width = width - int(100 * scale)  # Default margins
 
     # Wrap text
     lines = _wrap_text(text, font, max_width)
@@ -494,31 +514,34 @@ def draw_persistent_pill(
     accent_color: tuple[int, int, int],
     y_position: int,
     opacity: float = 1.0,
+    scale: float = 1.0,
 ):
     """
     Draw a persistent pill-shaped CTA that stays on screen for the full video.
+    See draw_watermark for `scale`.
     """
     if opacity < 0.02:
         return
 
     width, height = img.size
-    
+
     full_text = f"{cta_text} {link_text}"
     text_bbox = font.getbbox(full_text)
     text_w = text_bbox[2] - text_bbox[0]
     text_h = text_bbox[3] - text_bbox[1]
-    
-    pad_x = 24
-    pad_y = 12
-    
+
+    pad_x = int(24 * scale)
+    pad_y = int(12 * scale)
+    outline_w = max(1, int(2 * scale))
+
     pill_w = text_w + (pad_x * 2)
     pill_h = text_h + (pad_y * 2)
     pill_x = (width - pill_w) // 2
-    
+
     # Draw pill background
     overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw_overlay = ImageDraw.Draw(overlay)
-    
+
     # Dark semi-transparent pill base
     base_alpha = int(220 * opacity)
     draw_overlay.rounded_rectangle(
@@ -526,7 +549,7 @@ def draw_persistent_pill(
         radius=pill_h // 2,
         fill=(15, 20, 25, base_alpha),
         outline=(*accent_color, int(150 * opacity)),
-        width=2
+        width=outline_w
     )
     
     img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
