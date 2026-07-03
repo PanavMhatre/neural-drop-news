@@ -54,6 +54,54 @@ class FrameCompositor:
         # redraw 700 lines every single frame).
         self._broll_gradient_overlay: Optional[Image.Image] = None
 
+        # cv2.VideoCapture.grab()/.read() have no timeout parameter and can
+        # hang indefinitely on a malformed/truncated source file instead of
+        # returning ret=False — observed in production: a render silently
+        # stalled on a single frame read for 2+ hours with zero error output,
+        # never reaching the 6h CI timeout on its own. See _safe_cap_read.
+        self._poisoned_paths: set[str] = set()
+
+    def _safe_cap_read(
+        self, cap: cv2.VideoCapture, frames_to_skip: int = 0,
+        seek_to: Optional[int] = None, timeout: float = 8.0,
+    ) -> tuple[bool, Optional["cv2.typing.MatLike"], bool]:
+        """Read the next frame from a VideoCapture with a hard wall-clock
+        timeout. See __init__ for why this exists — .grab()/.read() have no
+        native timeout and can hang forever on a bad file.
+
+        Uses a raw daemon thread rather than ThreadPoolExecutor — pool
+        worker threads are non-daemon and can't be killed, so a genuinely
+        stuck read would keep that worker alive forever and could then
+        block the whole Python process from exiting cleanly once rendering
+        finishes, recreating the same hang one layer up. A daemon thread
+        can't do that — the process exits regardless of whether it ever
+        finishes.
+
+        Returns (ret, frame, timed_out). The caller must treat
+        `timed_out=True` as "never touch this capture again" (the
+        abandoned thread may still be blocked on it) — not the same as an
+        ordinary ret=False (e.g. normal end-of-stream), which is safe to
+        retry/seek past.
+        """
+        import threading
+        result: list = [False, None]
+
+        def _do_read():
+            if seek_to is not None:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, seek_to))
+            else:
+                for _ in range(frames_to_skip):
+                    cap.grab()
+            result[0], result[1] = cap.read()
+
+        t = threading.Thread(target=_do_read, daemon=True)
+        t.start()
+        t.join(timeout=timeout)
+        if t.is_alive():
+            logger.warning(f"VideoCapture read timed out after {timeout}s — poisoning this source")
+            return False, None, True
+        return result[0], result[1], False
+
     def _load_fonts(self) -> None:
         """Load font files with fallback to default."""
         font_paths = [
@@ -304,9 +352,14 @@ class FrameCompositor:
                 process.kill()
                 stdout, stderr = process.communicate()
 
-            # Clean up captures
-            for cap in video_captures.values():
-                cap.release()
+            # Clean up captures — skip any whose read timed out; the
+            # abandoned daemon thread (see _safe_cap_read) may still be
+            # blocked inside a call on that same capture, and releasing it
+            # concurrently from here is unsafe. Leaking that one handle
+            # until process exit is harmless; a crash on cleanup isn't.
+            for path, cap in video_captures.items():
+                if path not in self._poisoned_paths:
+                    cap.release()
 
             if process.returncode != 0:
                 ffmpeg_err = stderr.decode(errors="replace")[-800:] if stderr else ""
@@ -362,6 +415,8 @@ class FrameCompositor:
         for _candidate in _candidates:
             cand_path = media_paths.get(_candidate)
             cap = video_captures.get(cand_path) if cand_path else None
+            if cand_path in self._poisoned_paths:
+                cap = None  # a prior read on this source timed out — don't touch it again
             if cap:
                 # Read frames SEQUENTIALLY with smart skip/hold.
                 # cv2 H.264 seeking (CAP_PROP_POS_FRAMES) snaps to keyframes
@@ -394,13 +449,14 @@ class FrameCompositor:
                     break
                 elif target_frame > last_idx:
                     # Need to advance — read forward sequentially (skip frames we don't need)
-                    frames_to_skip = target_frame - last_idx - 1
-                    for _ in range(min(frames_to_skip, 120)):  # cap skip distance
-                        cap.grab()  # fast: decodes but doesn't convert
-                    ret, cv_frame = cap.read()
-                    if not ret:
-                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        ret, cv_frame = cap.read()
+                    frames_to_skip = min(target_frame - last_idx - 1, 120)  # cap skip distance
+                    ret, cv_frame, timed_out = self._safe_cap_read(cap, frames_to_skip=frames_to_skip)
+                    if timed_out:
+                        self._poisoned_paths.add(cand_path)
+                    elif not ret:
+                        ret, cv_frame, timed_out = self._safe_cap_read(cap, seek_to=0)
+                        if timed_out:
+                            self._poisoned_paths.add(cand_path)
                     if ret:
                         cv_frame = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
                         broll_img = Image.fromarray(cv_frame)
@@ -413,8 +469,9 @@ class FrameCompositor:
                         break
                 else:
                     # target_frame < last_idx → looped back, must seek
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, target_frame))
-                    ret, cv_frame = cap.read()
+                    ret, cv_frame, timed_out = self._safe_cap_read(cap, seek_to=target_frame)
+                    if timed_out:
+                        self._poisoned_paths.add(cand_path)
                     if ret:
                         cv_frame = cv2.cvtColor(cv_frame, cv2.COLOR_BGR2RGB)
                         broll_img = Image.fromarray(cv_frame)
