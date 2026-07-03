@@ -8,6 +8,7 @@ composition: background, text, captions, progress bar, and animations.
 
 import logging
 import subprocess
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -83,7 +84,6 @@ class FrameCompositor:
         ordinary ret=False (e.g. normal end-of-stream), which is safe to
         retry/seek past.
         """
-        import threading
         result: list = [False, None]
 
         def _do_read():
@@ -101,6 +101,41 @@ class FrameCompositor:
             logger.warning(f"VideoCapture read timed out after {timeout}s — poisoning this source")
             return False, None, True
         return result[0], result[1], False
+
+    def _safe_pipe_write(self, process: subprocess.Popen, data: bytes, timeout: float = 60.0) -> None:
+        """Write one frame to ffmpeg's stdin with a hard wall-clock timeout.
+
+        A raw 2160x3840 RGB24 frame is ~24MB, going through an OS pipe
+        buffer that's typically only 64KB — so this write only completes as
+        fast as ffmpeg actually drains it, and blocks for however long that
+        takes. If ffmpeg itself stalls on a specific frame (slow ≠ stuck,
+        but there's no way to tell from here), the write blocks forever with
+        zero visibility, exactly like the VideoCapture reads _safe_cap_read
+        guards against — same failure shape, different call site. 60s is
+        generous even for a slow 4K/slower-preset frame (observed pace
+        elsewhere is well under 1s/frame); if ffmpeg is still not done with
+        one frame after that, treat it as an unrecoverable encoder stall —
+        there's no reasonable fallback the way there is for a single bad
+        b-roll source, so this raises rather than best-effort continuing.
+        """
+        result: list = [None]
+
+        def _do_write():
+            try:
+                process.stdin.write(data)
+                result[0] = "ok"
+            except Exception as e:
+                result[0] = e
+
+        t = threading.Thread(target=_do_write, daemon=True)
+        t.start()
+        t.join(timeout=timeout)
+        if t.is_alive():
+            logger.error(f"FFmpeg stdin write timed out after {timeout}s — killing the encoder, aborting this render")
+            process.kill()
+            raise RuntimeError(f"FFmpeg stopped consuming frames (write blocked >{timeout}s) — encoder likely stalled")
+        if isinstance(result[0], Exception):
+            raise result[0]
 
     def _load_fonts(self) -> None:
         """Load font files with fallback to default."""
@@ -318,9 +353,13 @@ class FrameCompositor:
                     show_cta=show_cta,
                 )
 
-                # Write raw bytes to FFmpeg — catch broken pipe to surface ffmpeg's error
+                # Write raw bytes to FFmpeg — guarded by a hard timeout (see
+                # _safe_pipe_write) since a plain process.stdin.write() can
+                # block forever if ffmpeg itself stalls, with zero visibility
+                # into why. Also still catches a closed/broken pipe (ffmpeg
+                # exited) to surface its stderr for diagnosis.
                 try:
-                    process.stdin.write(frame.tobytes())
+                    self._safe_pipe_write(process, frame.tobytes())
                 except (BrokenPipeError, ValueError, OSError):
                     # ffmpeg crashed — collect stderr for diagnosis
                     try:
