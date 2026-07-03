@@ -151,7 +151,7 @@ class ScriptGenerator:
         self.client = client
         self.fallback_client = fallback_client  # Groq — used when all NVIDIA keys are exhausted
         self.config = config
-        self.channel_name = config.get("channel_name", "TechPulse Shorts")
+        self.channel_name = config.get("channel_name", "Neural Drop")
         self.model = config.get("llm_model", "z-ai/glm-5.1")
         self.fallback_model = "openai/gpt-oss-120b"
         self.temperature = config.get("llm_temperature", 0.8)

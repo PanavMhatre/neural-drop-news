@@ -30,7 +30,7 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="TechPulse Shorts API")
+app = FastAPI(title="Neural Drop API")
 
 agent_daemon = AutonomousAgent()
 publisher_daemon = AutoPublisher()

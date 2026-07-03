@@ -116,7 +116,7 @@ class Pipeline:
         # Script generation: Groq primary (NVIDIA consistently timing out), NVIDIA as fallback
         scripts_config = {
             **self.config.get("scripts", {}),
-            "channel_name": self.config.get("channel", {}).get("name", "TechPulse Shorts"),
+            "channel_name": self.config.get("channel", {}).get("name", "Neural Drop"),
             "llm_model": self._groq_model or self._nvidia_model or "openai/gpt-oss-120b",
         }
         self.script_generator = ScriptGenerator(
@@ -156,7 +156,7 @@ class Pipeline:
         # Output
         self.output_folder = self.config.get("output", {}).get("folder", "./output")
         self.render_video = self.config.get("output", {}).get("render_video", True)
-        self.channel_name = self.config.get("channel", {}).get("name", "TechPulse Shorts")
+        self.channel_name = self.config.get("channel", {}).get("name", "Neural Drop")
         self.max_retries = self.config.get("scripts", {}).get("max_retries", 2)
 
         # Distribution / Neural Drop promotion

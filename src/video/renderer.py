@@ -44,7 +44,7 @@ class VideoRenderer:
         total_duration: float,
         template_type: VisualTemplate,
         accent_color: tuple[int, int, int],
-        channel_name: str = "TechPulse Shorts",
+        channel_name: str = "Neural Drop",
         source_name: str = "",
         progress_callback = None,
         cta_text: str = "Get the daily crypto briefing >>",
