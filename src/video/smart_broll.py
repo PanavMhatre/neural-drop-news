@@ -196,10 +196,40 @@ class SmartBRollAgent:
         if yt_audio_path:
             logger.info(f"YouTube audio extracted for non-TTS mode: {yt_audio_path}")
 
-        # Use the YouTube clip for every section (compositor trims/advances
-        # through it per section rather than restarting at frame 0 each time)
-        for cue in script.visual_plan:
-            media_paths[cue.section] = yt_video_path
+        # Match each section to the part of the SOURCE video that's actually
+        # talking about the same thing, instead of playing the download
+        # straight through from frame 0. A single downloaded video routinely
+        # contains an intro bumper, a sponsor segment (e.g. an exchange app
+        # download ad), and the actual news coverage all in one file — linear
+        # playback puts whatever's chronologically next on screen regardless
+        # of what the narration says at that moment, which is exactly what
+        # "the background doesn't match what's being said" looks like.
+        transcript = self._parse_subtitles(yt_subs_path) if yt_subs_path else []
+        if not transcript:
+            logger.warning("No transcript available — per-section matching skipped, using engagement-window trim only")
+
+        def _match_and_trim(cue: VisualCue) -> tuple[str, Optional[str]]:
+            safe = "".join(c if c.isalnum() else "_" for c in cue.section).strip("_") or "section"
+            start_t, end_t = self._find_best_segment(cue, transcript, default_start=0.0)
+            trimmed_path = str(self.output_dir / f"{safe}_matched.mp4")
+            if self._trim_video(yt_video_path, trimmed_path, start_t, end_t):
+                return cue.section, trimmed_path
+            return cue.section, None
+
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        with ThreadPoolExecutor(max_workers=min(5, max(1, len(script.visual_plan)))) as pool:
+            futures = {pool.submit(_match_and_trim, cue): cue for cue in script.visual_plan}
+            for fut in as_completed(futures):
+                cue = futures[fut]
+                try:
+                    section, matched_path = fut.result()
+                except Exception as e:
+                    logger.warning(f"Segment match/trim failed for '{cue.section}': {e}")
+                    section, matched_path = cue.section, None
+                # Fall back to the full source video for this section if
+                # matching or trimming failed — still real footage, just
+                # without the content-relevance match.
+                media_paths[section] = matched_path or yt_video_path
 
         logger.info(f"B-roll source: youtube | sections covered: {list(media_paths.keys())}")
         return media_paths, "youtube", yt_audio_path
