@@ -125,13 +125,20 @@ captions:
 # Video Rendering
 # ---------------------------------------------------------------------------
 video:
-  # 4K vertical (2160x3840 = 2x linear / 4x pixel count of the 1080x1920
-  # baseline). All font sizes, stroke widths, and margins throughout
-  # src/video/ scale proportionally from that baseline automatically
+  # 1080x1920 — GitHub's standard hosted runner (2 vCPU / 7GB, fixed for
+  # personal accounts, no larger-runner tier available) cannot sustain
+  # true 4K (2160x3840) x264 encoding of real b-roll footage: confirmed
+  # across three rounds of encoder tuning (VBV limits, preset, thread
+  # pinning) that every 4K render attempt still stalled solid partway
+  # through regardless. 1080x1920 at this same CRF 15 near-lossless
+  # target already rendered successfully on this runner before 4K was
+  # attempted (~5.4min encode at "veryslow"), so this is a known-working
+  # configuration. All font sizes, stroke widths, and margins throughout
+  # src/video/ scale proportionally from this baseline automatically
   # (FrameCompositor.scale = width / 1080) — no other config value here
-  # needs to change when this does.
-  width: 2160
-  height: 3840
+  # needs to change if resolution changes again.
+  width: 1080
+  height: 1920
   fps: 30
   quality: "high"                 # "low" (fast), "medium", "high"
 

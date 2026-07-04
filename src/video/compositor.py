@@ -1028,6 +1028,17 @@ class FrameCompositor:
             "-i", "-",
             "-i", audio_path,
             "-c:v", "libx264",
+            # Pin thread count to the runner's real core count. Left on
+            # ffmpeg's default auto-detection, x264 can spin up more frame/
+            # lookahead/slice worker threads than a 2-vCPU GitHub-hosted
+            # runner has cores for — confirmed this matters here because
+            # neither loosening VBV nor dropping the preset to "medium"
+            # changed the failure pattern at all: every render still ran
+            # at ~0.05-0.09x realtime and then froze solid (zero progress
+            # for 60s+) at almost the same point regardless of those
+            # changes, which rules out preset/bitrate-cap as the cause and
+            # points at thread oversubscription/contention instead.
+            "-threads", "2",
             "-profile:v", "high",
             # Level 4.0 caps VBV/max-bitrate well below what a near-lossless
             # CRF 15 target wants for detailed 1080x1920 footage, silently
@@ -1062,7 +1073,10 @@ class FrameCompositor:
             # lookahead frame is a meaningfully large internal allocation.
             # Paired with the medium-preset drop above (both address the
             # same 2-vCPU/7GB runner ceiling from the same root cause).
-            "-x264-params", "rc-lookahead=10",
+            # x264 has its own internal thread pool separate from ffmpeg's
+            # "-threads" — pin it explicitly too rather than trust it to
+            # respect the outer setting.
+            "-x264-params", "rc-lookahead=10:threads=2",
             "-crf", "15",          # near-lossless; going lower has no visible
                                     # payoff since every platform re-encodes on ingest
             "-bf", "2",            # B-frames for better compression at same quality
