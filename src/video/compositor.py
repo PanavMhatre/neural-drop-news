@@ -994,17 +994,19 @@ class FrameCompositor:
         # "veryslow" (i.e. "placebo") the encoding-time cost stops buying any
         # visible quality, per x264's own docs.
         #
-        # At a higher-than-1080-baseline canvas (e.g. 2160x3840 "4K"),
-        # encode time scales with pixel count — 4x the pixels is roughly
-        # 4-6x longer at the same preset (measured: a 1080x1920 video at
-        # veryslow took ~5.4min to encode on a real GitHub Actions runner).
-        # For count=7/day against a hard 6h ceiling, running veryslow at 4x
-        # the resolution risks not finishing. "slower" is one step down —
-        # x264's own benchmarks put the quality delta between slower and
-        # veryslow at a fraction of a percent in bitrate efficiency at this
-        # CRF, invisible to the eye, while meaningfully protecting the time
-        # budget the higher resolution is now spending instead.
-        preset = "veryslow" if self.scale <= 1.0 else "slower"
+        # At a higher-than-1080-baseline canvas (e.g. 2160x3840 "4K"), encode
+        # cost scales with pixel count AND with how many reference frames /
+        # how much lookahead the preset holds in memory at once. GitHub's
+        # standard hosted runner is only 2 vCPUs / 7GB RAM — confirmed live
+        # via repeated test renders that even "slower" (ref=8+, ~60-frame
+        # lookahead default) drives it down to ~0.06x realtime and then
+        # freezes outright for 60s+ stretches under that resource pressure,
+        # not just "runs slowly." "medium" (ref=3, much smaller lookahead)
+        # is the actual ceiling this hardware can sustain at 4K without
+        # stalling. Preset trades bitrate *efficiency* for encode time, not
+        # raw visual fidelity — CRF 15 is what determines perceptual
+        # quality, so this keeps the near-lossless target intact.
+        preset = "veryslow" if self.scale <= 1.0 else "medium"
 
         # Loudness-normalize to the -14 LUFS integrated target every major
         # platform (YouTube, TikTok, Instagram, Spotify) recommends, then a
@@ -1057,15 +1059,10 @@ class FrameCompositor:
             "-bufsize", f"{int(100 * max(1.0, self.scale ** 2))}M",
             "-preset", preset,
             # Bound x264's lookahead buffer explicitly — at 4K each buffered
-            # lookahead frame is a meaningfully large internal allocation,
-            # and the default for "slower"/"veryslow" (~40-60 frames) adds
-            # up fast. This is a plausible contributor to the stalls above
-            # (memory pressure building up over the render, not a fixed
-            # frame count, hence stalling at a similar point regardless of
-            # video length/content) — reducing it is a low-cost hedge
-            # either way, with minimal quality impact given -bf 2 already
-            # keeps the B-frame count modest.
-            "-x264-params", "rc-lookahead=20",
+            # lookahead frame is a meaningfully large internal allocation.
+            # Paired with the medium-preset drop above (both address the
+            # same 2-vCPU/7GB runner ceiling from the same root cause).
+            "-x264-params", "rc-lookahead=10",
             "-crf", "15",          # near-lossless; going lower has no visible
                                     # payoff since every platform re-encodes on ingest
             "-bf", "2",            # B-frames for better compression at same quality
