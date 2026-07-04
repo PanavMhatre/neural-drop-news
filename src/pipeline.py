@@ -525,6 +525,19 @@ class Pipeline:
             media_paths, broll_source, yt_audio_path = f_broll.result()
             voice_config = f_tts.result()
 
+        # youtube_only_mode skips TTS above on the assumption YouTube audio
+        # will be usable — if extraction failed (corrupted/truncated download),
+        # nothing else produces voiceover.mp3, so render_audio_path would
+        # fall through to a file that was never created. Generate it now.
+        if youtube_only_mode and not (yt_audio_path and Path(yt_audio_path).exists()):
+            logger.warning("YouTube audio unavailable — falling back to TTS voiceover")
+            voice_config = self.tts_engine.generate_voiceover(
+                script_text=script.full_script,
+                output_path=audio_path,
+                tone=scored_story.detected_tone,
+                voice_override=voice_override,
+            )
+
         # Determine render audio and caption approach.
         # When YouTube B-roll is available:
         #   - render_audio = YouTube audio trimmed to script duration (real news sound)
